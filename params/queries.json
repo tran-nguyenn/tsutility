@@ -1,0 +1,6 @@
+
+{
+ "DIST_MAT_LOC_ORG":         "\\sql\\ANC\\FCST_ANC_DIST_MAT_LOC_ORG.sql",
+ "DIST_STRATCUST_MAT_LOC_ORG":        "\\sql\\ANC\\FCST_ANC_DIST_MAT_LOC_ORG.sql",
+ "DIST_ORG_PRODUCTCAT":        "\\sql\\ANC\\FCST_ANC_DIST_ORG_PRODUCTCAT.sql",
+}

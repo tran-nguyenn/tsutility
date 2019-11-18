@@ -70,7 +70,7 @@ connection = {
 
 # COMMAND ----------
 
-# DBTITLE 1,Data Extraction: 
+# DBTITLE 1,Data Extraction:
 # Data Exctraction
 attTable = "fcst.ancCleanRawMATLOC"
 attTableCust = "fcst.ancCleanRawMATLOCCUST"
@@ -118,7 +118,7 @@ category_table = base.join(product_table, on = ['PLANT_CODE', 'MATERIAL_CODE'], 
 def forecast_group(df, aggregation):
   # Convert sql pyspark data frame into pandas and then convert to koalas
   kdf = ks.DataFrame(df)
-  
+
   if(aggregation == 'customer'):
     kdf_group = kdf.groupby(['DISTRIBUTION_CHANNEL', 'StratCust', 'MATERIAL_CODE', 'PLANT_CODE', 'SALES_ORG', 'YEAR', 'MONTH', 'MONTH_DATE', 'FORECAST_DATE'])['UNCLEAN_SOH', 'CLEAN_SOH'].sum().reset_index()
   elif(aggregation == 'category'):
@@ -160,7 +160,7 @@ def autocorrelation_agg(pdf, group_agg):
       group['ACF_UNCLEAN_SOH'] = acf_est.astype(float)
       group['unclean_lj_lower'] = acf_lj_lower.astype(float)
       group['unclean_lj_upper'] = acf_lj_upper.astype(float)
-      group[['unclean_ci_lower', 'unclean_ci_upper']] = pd.DataFrame(acf_ci.tolist(), index=group.index).astype(float) 
+      group[['unclean_ci_lower', 'unclean_ci_upper']] = pd.DataFrame(acf_ci.tolist(), index=group.index).astype(float)
 
       # autocorrelation clean soh
       acf_est, acf_ci = acf(group['CLEAN_SOH'], nlags = length, fft=False, alpha = 0.05)
@@ -178,7 +178,7 @@ def autocorrelation_agg(pdf, group_agg):
 
   # see pd.concat documentation for more info
   appended_data = pd.concat(appended_data)
-  
+
   return(appended_data)
 
 # base level pass in an array to groupby as the second parameter
@@ -197,11 +197,11 @@ category_acf = autocorrelation_agg(pdf = kdf_group_category, group_agg = group_a
 def clean_data(df, acf_var):
   # time variable to convert
   time_var = ['MONTH_DATE', 'FORECAST_DATE']
-  
+
   # Change data types to string, numeric, and time
   df[acf_var] = df[acf_var].fillna(0)
   df.loc[:, time_var] = df.loc[:, time_var].apply(pd.to_datetime, format = '%Y-%m-%d', errors = 'ignore')
-  
+
   return(df)
 
 base_df = clean_data(df = base_acf, acf_var = acf_var)
@@ -225,14 +225,14 @@ master_category = cleanRawSOH_DF_CATEGORY
 # COMMAND ----------
 
 # DBTITLE 1,Write seasonal trend and auto correlation into mysql MTD
-master_base.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTD', mode='overwrite', properties=connection) 
+master_base.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTD', mode='overwrite', properties=connection)
 
 # COMMAND ----------
 
 # DBTITLE 1,Write seasonal trend and auto correlation into mysql MTD CUST
-master_cust.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCUST', mode='overwrite', properties=connection) 
+master_cust.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCUST', mode='overwrite', properties=connection)
 
 # COMMAND ----------
 
 # DBTITLE 1,Write seasonal trend and auto correlation into mysql MTD Category
-master_category.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCategory', mode='overwrite', properties=connection) 
+master_category.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCategory', mode='overwrite', properties=connection)
