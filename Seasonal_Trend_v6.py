@@ -1,7 +1,6 @@
 # Databricks notebook source
 # DBTITLE 1,Import Data from MYSQL
 # Utility and Spark
-from pyspark.sql.functions import pandas_udf, PandasUDFType
 from pyspark.sql.types import *
 
 # Broken as of 11/14/2019 on this cluster until MJ and Matt fix it
@@ -173,7 +172,14 @@ customer_table = customer_table.join(product_table, on = ['MATERIAL_CODE', 'PLAN
 
 # COMMAND ----------
 
-# DBTITLE 1,Autocorrelation Function
+# DBTITLE 1,Autocorrelation Function and Parallelization function
+# need to create a parallelization group by function making a list of dataframes
+def group_for_parallel(df, group):
+  groups = list()
+  for k, v in df.groupby(group):
+    groups.append(v)
+  return(groups)
+    
 # function for autocorrelation
 def autocorrelation_agg(df):
   # ignore warnings about NA or 0 division
@@ -233,37 +239,37 @@ group_agg_category = ['DISTRIBUTION_CHANNEL', 'SALES_ORG', 'PRODUCT_CATEGORY'] #
 # base, customer, category group by tables
 # toPandas() takes a long time (5 minutes)
 list_base_group = group_for_parallel(base_table.toPandas(), group_agg_base)
-#list_customer_group = group_for_parallel(customer_table.toPandas(), group_agg_customer)
-#list_category_group = group_for_parallel(category_table.toPandas(), group_agg_category)
+list_customer_group = group_for_parallel(customer_table.toPandas(), group_agg_customer)
+list_category_group = group_for_parallel(category_table.toPandas(), group_agg_category)
 
 # COMMAND ----------
 
 # DBTITLE 1,Parallelization
 baseRDD = sc.parallelize(list_base_group, 8)
-#customerRDD = sc.parallelize(list_customer_group, 8)
-#categoryRDD = sc.parallelize(list_category_group, 8)
+customerRDD = sc.parallelize(list_customer_group, 8)
+categoryRDD = sc.parallelize(list_category_group, 8)
 
 # COMMAND ----------
 
 # DBTITLE 1,Map Autocorrleation to partitioned data
 base_ac = baseRDD.map(autocorrelation_agg)
-#customer_ac = customerRDD.map(autocorrelation_agg)
-#category_ac = categoryRDD.map(autocorrelation_agg)
+customer_ac = customerRDD.map(autocorrelation_agg)
+category_ac = categoryRDD.map(autocorrelation_agg)
 
 # COMMAND ----------
 
 # DBTITLE 1,Collect datasets
 # run time
 base_acf= base_ac.collect()
-#customer_acf = customer_ac.collect()
-#category_acf = category_ac.collect()
+customer_acf = customer_ac.collect()
+category_acf = category_ac.collect()
 
 # COMMAND ----------
 
 # DBTITLE 1,Concatenate the list of data frames into a single data set
 df_base = pd.concat(base_acf, sort = True, ignore_index = True).reset_index()
-#df_customer = pd.concat(customer_acf, sort = True, ignore_index = True).reset_index()
-#df_category = pd.concat(category_acf, sort = True, ignore_index = True).reset_index()
+df_customer = pd.concat(customer_acf, sort = True, ignore_index = True).reset_index()
+df_category = pd.concat(category_acf, sort = True, ignore_index = True).reset_index()
 
 # COMMAND ----------
 
