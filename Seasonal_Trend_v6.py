@@ -146,6 +146,38 @@ SELECT
       FROM 
 """ + product
 
+query_product_group = """
+SELECT 
+      DISTRIBUTION_CHANNEL, 
+      SALES_ORG, 
+      PRODUCT_CATEGORY,
+      YEAR, 
+      MONTH, 
+      MONTH_DATE, 
+      FORECAST_DATE,
+      SUM(UNCLEAN_SOH) as SUM_UNCLEAN_SOH, 
+      SUM(CLEAN_SOH) as SUM_CLEAN_SOH
+      FROM (
+          SELECT 
+                DISTRIBUTION_CHANNEL, 
+                SALES_ORG, 
+                PRODUCT_CATEGORY,
+                FORECAST_DATE, format(FORECAST_DATE, 'MMMM') as MONTH, 
+                YEAR(FORECAST_DATE) as YEAR, 
+                DATEADD(mm, DATEDIFF(mm, 0, FORECAST_DATE) - 1, 0) as MONTH_DATE, 
+                UNCLEAN_SOH, 
+                CLEAN_SOH
+                FROM """ + ancMatLoc + """ as AML
+                JOIN """ + product + """ as P
+                ON
+                AML.MATERIAL_CODE = P.MATL
+                AND
+                AML.PLANT_CODE = P.PLANT
+      ) MATLOC
+      GROUP BY
+      DISTRIBUTION_CHANNEL, SALES_ORG, PRODUCT_CATEGORY, YEAR, MONTH, MONTH_DATE, FORECAST_DATE
+"""
+
 # COMMAND ----------
 
 # DBTITLE 1,Retrieve Data
@@ -156,12 +188,8 @@ base_table = spark.read.format("jdbc").option("url", jdbcUrl).option("username",
 customer_table = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", query_stratcust_group).load()
 # product table to join after acf and aggregation calculations
 product_table = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", productTable).load()
-
-# COMMAND ----------
-
-# DBTITLE 1,Create Product Category Table
-# Join product table to the anc base table
-category_table = base.join(product_table, on = ['PLANT_CODE', 'MATERIAL_CODE'], how = 'left')
+# category table
+category_table = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", query_product_group).load()
 
 # COMMAND ----------
 
@@ -245,9 +273,9 @@ list_category_group = group_for_parallel(category_table.toPandas(), group_agg_ca
 # COMMAND ----------
 
 # DBTITLE 1,Parallelization
-baseRDD = sc.parallelize(list_base_group, 8)
-customerRDD = sc.parallelize(list_customer_group, 8)
-categoryRDD = sc.parallelize(list_category_group, 8)
+baseRDD = sc.parallelize(list_base_group, 100)
+customerRDD = sc.parallelize(list_customer_group, 100)
+categoryRDD = sc.parallelize(list_category_group, 100)
 
 # COMMAND ----------
 
@@ -261,7 +289,13 @@ category_ac = categoryRDD.map(autocorrelation_agg)
 # DBTITLE 1,Collect datasets
 # run time
 base_acf= base_ac.collect()
+
+# COMMAND ----------
+
 customer_acf = customer_ac.collect()
+
+# COMMAND ----------
+
 category_acf = category_ac.collect()
 
 # COMMAND ----------
@@ -273,19 +307,28 @@ df_category = pd.concat(category_acf, sort = True, ignore_index = True).reset_in
 
 # COMMAND ----------
 
-display(df_base)
+# DBTITLE 1,Rewrite Pandas Dataframe into Pyspark data frame
+df_base_spark = spark.createDataFrame(df_base)
+
+# COMMAND ----------
+
+df_customer_spark = spark.createDataFrame(df_customer)
+
+# COMMAND ----------
+
+df_category_spark = spark.createDataFrame(df_category)
 
 # COMMAND ----------
 
 # DBTITLE 1,Write seasonal trend and auto correlation into mysql MTD @ distr, mat, loc, sales org
-master_base.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTD_test', mode='overwrite', properties=connection) 
+df_base_spark.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTD', mode='overwrite', properties=connection) 
 
 # COMMAND ----------
 
 # DBTITLE 1,Write seasonal trend and auto correlation into mysql MTD @ distr, mat, loc, sales, org, strat cust
-master_cust.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCUST_test', mode='overwrite', properties=connection) 
+df_customer_spark.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCUST', mode='overwrite', properties=connection) 
 
 # COMMAND ----------
 
 # DBTITLE 1,Write seasonal trend and auto correlation into mysql MTD Category @ product category
-category_acf.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCategory_test', mode='overwrite', properties=connection) 
+df_category_spark.write.jdbc(url=jdbcUrl, table='fcst.SeasonalAutoCorrelationMTDCategory', mode='overwrite', properties=connection) 
