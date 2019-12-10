@@ -2,20 +2,19 @@
 Autocorrleation calculation at a specific aggregation level
 """
 
-import scipy
-from statsmodels.tsa.stattools import acf, pacf
+from statsmodels.tsa.stattools import acf
 import pandas as pd
 import numpy as np
 
 def autocorrelation_agg(df):
-    """
-    :param df: pandas dataframe
-    :return: list of acf calculated dataframes
+  """
+  :param df: pandas dataframe
+  :return: list of acf calculated dataframes
 
-    """
+  """
   # ignore warnings about NA or 0 division
   np.seterr(divide = 'ignore', invalid = 'ignore')
-
+  
   # fill null values in SUM_UNCLEAN_SOH and SUM_CLEAN_SOH with 0
   df[['SUM_UNCLEAN_SOH', 'SUM_CLEAN_SOH']] = df[['SUM_UNCLEAN_SOH', 'SUM_CLEAN_SOH']].fillna(0)
 
