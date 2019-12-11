@@ -11,13 +11,13 @@ setuptools.setup(
     description="time series calculations",
     long_description=long_description,
     long_description_content_type="calculation",
-    url="https://github.com/newelldatascience/seasonal_autocorrelation/tree/master/Season",
+    url="https://github.com/newelldatascience/seasonal_autocorrelation/tree/master/tsDataScience",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.0',
 )# -*- coding: utf-8 -*-
 
