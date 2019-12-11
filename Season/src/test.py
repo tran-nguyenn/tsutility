@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-import Season.src.utils
+import Season.src.utils as utils
 import os
 import sys
-import json
 
 sys.path.append(os.getcwd())
 
@@ -10,6 +9,9 @@ sys.path.append(os.getcwd())
 
 root = os.path.abspath(os.getcwd())
 filename = 'aggregation.json'
-file_path = root + '\\Season\\params\\aggregation\\' + filename
-json_string = open(file_path).read()
-params = json.loads(json_string.replace('\n', ' ').replace('\t', ' '))
+filename = 'queries.json'
+queries_params = utils.read_params_in_from_json(filename)
+
+filename = 'base_table.sql'
+queries = utils.read_sql(filename)
+

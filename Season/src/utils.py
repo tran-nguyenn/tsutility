@@ -12,8 +12,7 @@ def read_params_in_from_json(filename):
     """
 
     root = os.path.abspath(os.getcwd())
-    filename = 'aggregation.json'
-    file_path = root + '\\Season\\params\\aggregation\\' + filename
+    file_path = root + '\\Season\\params\\' + filename
     json_string = open(file_path).read()
     params = json.loads(json_string.replace('\n', ' ').replace('\t', ' '))    
     
@@ -31,3 +30,16 @@ def group_for_parallel(df, group):
         groups.append(v)
 
     return(groups)
+
+def read_sql(filename):
+    """
+    :param filename: file name
+    :return: sql query as a string
+    """
+    
+    root = os.path.abspath(os.getcwd())
+    file_path = root + '\\Season\\sql\\' + filename
+    sql = open(file_path, mode='r', encoding='utf-8-sig').read()
+    sql = sql.replace('\n', ' ').replace('\t', ' ')
+    
+    return(sql)
