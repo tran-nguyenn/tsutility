@@ -58,9 +58,10 @@ def autocorrelation_agg(df):
 
   return(df)
   
-def decomposed(df):
+def decomposed(df, target):
     """
     :param df: pandas dataframe
+    :param target: target column of data to calculate decomposed
     :return: list of decomposed calculated dataframes
     """
     
@@ -70,14 +71,14 @@ def decomposed(df):
     # sort values by forecast date
     soh = df.toPandas().sort_values(by = ['FORECAST_DATE'])
     
-    if soh['SUM_UNCLEAN_SOH'].head(6) == 0:
-        adjusted = soh['SUM_UNCLEAN_SOH']
-    elif soh['SUM_UNCLEAN_SOH'].head(12) == 0:
-        seasons, trned = fit_seasons(soh['SUM_UNCLEAN_SOH'])
-        adjusted = adjust_seasons(soh['SUM_UNCLEAN_SOH'], seasons = seasons)
+    if soh[target].head(6) == 0:
+        adjusted = soh[target]
+    elif soh[target].head(12) == 0:
+        seasons, trned = fit_seasons(soh[target])
+        adjusted = adjust_seasons(soh[target], seasons = seasons)
     else:
-        seasons, trend = fit_seasons(soh['SUM_UNCLEAN_SOH'], period = 12)
-        adjusted = adjust_seasons(soh['SUM_UNCLEAN_SOH'], seasons = seasons)
+        seasons, trend = fit_seasons(soh[target], period = 12)
+        adjusted = adjust_seasons(soh[target], seasons = seasons)
     
     residual = adjusted - trend
     
