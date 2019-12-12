@@ -1,6 +1,4 @@
 setup.py
-tsutility/__init__.py
-tsutility/setup.py
 tsutility.egg-info/PKG-INFO
 tsutility.egg-info/SOURCES.txt
 tsutility.egg-info/dependency_links.txt
