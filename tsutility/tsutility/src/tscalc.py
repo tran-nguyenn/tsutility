@@ -2,11 +2,13 @@
 Autocorrleation calculation at a specific aggregation level
 """
 
-from statsmodels.tsa.stattools import acf
 import pandas as pd
 import numpy as np
+import seasonal
 from seasonal import fit_seasons, adjust_seasons
-from scipy.stats import variation
+import statsmodels
+from statsmodels.tsa.stattools import acf
+#from scipy.stats import variation
 
 def autocorrelation_agg(df):
   """
