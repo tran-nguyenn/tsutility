@@ -76,31 +76,38 @@ def decomposed(df):
     # check for consecutive zeros anywhere in the data pre-processing
     df_clean = df[df[target] != 0]
     
-    if len(df_clean) < 6:
-      seasons, trend = np.zeros(len(df_clean)), np.zeros(len(df_clean))
-      adjusted = df_clean[target]
-    if len(df_clean) < 12:
-      seasons, trend = fit_seasons(df_clean[target])
-      adjusted = adjust_seasons(df_clean[target], seasons = seasons)
-    else:
-      seasons, trend = fit_seasons(df_clean[target], period = 12)
-      adjusted = adjust_seasons(df_clean[target], seasons = seasons)
+    try:
+      if len(df_clean) < 6:
+        seasons, trend = np.zeros(len(df_clean)), np.zeros(len(df_clean))
+        adjusted = df_clean[target]
+      if len(df_clean) < 12:
+        seasons, trend = fit_seasons(df_clean[target])
+        adjusted = adjust_seasons(df_clean[target], seasons = seasons)
+      else:
+        seasons, trend = fit_seasons(df_clean[target], period = 12)
+        adjusted = adjust_seasons(df_clean[target], seasons = seasons)
 
-    if seasons is None:
-      seasons = np.zeros(len(df_clean))
-      adjusted = df_clean[target]
+      if seasons is None:
+        seasons = np.zeros(len(df_clean))
+        adjusted = df_clean[target]
+
+      residual = adjusted - trend
+      df_clean['adjusted'] = adjusted
+      df_clean['residual'] = residual
+      df_clean['trend'] = trend
+      df_clean['seasons'] = seasons
+
+      # columns to join
+      cols_to_use = ['adjusted', 'residual', 'trend', 'seasons', 'FORECAST_DATE']
+
+      # merge only non-zero values
+      df = pd.merge(df, df_clean[cols_to_use], how = 'left', on = 'FORECAST_DATE')
     
-    residual = adjusted - trend
-    df_clean['adjusted'] = adjusted
-    df_clean['residual'] = residual
-    df_clean['trend'] = trend
-    df_clean['seasons'] = seasons
-    
-    # columns to join
-    cols_to_use = ['adjusted', 'residual', 'trend', 'seasons', 'FORECAST_DATE']
-    
-    # merge only non-zero values
-    df = pd.merge(df, df_clean[cols_to_use], how = 'left', on = 'FORECAST_DATE')
+    except:
+      df['adjusted'] = np.nan
+      df['residual'] = np.nan
+      df['trend'] = np.nan
+      df['seasons'] = np.nan
       
     return(df)
   
