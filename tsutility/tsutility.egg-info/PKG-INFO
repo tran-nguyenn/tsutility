@@ -1,6 +1,6 @@
 Metadata-Version: 1.2
 Name: tsutility
-Version: 0.1
+Version: 0.2
 Summary: time series calculations
 Home-page: https://github.com/newelldatascience/seasonal_autocorrelation/tree/master/tsDataScience
 Author: Kevin Choi

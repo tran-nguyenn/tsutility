@@ -8,7 +8,7 @@ import seasonal
 from seasonal import fit_seasons, adjust_seasons
 import statsmodels
 from statsmodels.tsa.stattools import acf
-#from scipy.stats import variation
+from scipy.stats import variation
 
 def autocorrelation_agg(df):
   """
@@ -60,34 +60,55 @@ def autocorrelation_agg(df):
 
   return(df)
   
-def decomposed(df, target):
+def decomposed(df):
     """
     :param df: pandas dataframe
     :param target: target column of data to calculate decomposed
     :return: list of decomposed calculated dataframes
     """
-    
+    target = 'SUM_UNCLEAN_SOH'
     # ignore warnings about NA or 0 division
     np.seterr(divide = 'ignore', invalid = 'ignore')
     
     # sort values by forecast date
-    soh = df.toPandas().sort_values(by = ['FORECAST_DATE'])
+    df = df.sort_values(by = ['FORECAST_DATE'])
     
-    if soh[target].head(6) == 0:
-        adjusted = soh[target]
-    elif soh[target].head(12) == 0:
-        seasons, trned = fit_seasons(soh[target])
-        adjusted = adjust_seasons(soh[target], seasons = seasons)
-    else:
-        seasons, trend = fit_seasons(soh[target], period = 12)
-        adjusted = adjust_seasons(soh[target], seasons = seasons)
+    #df_ts = pd.DataFrame()
     
-    residual = adjusted - trend
+    try:
+      
+      if df[target].head(6) == 0:
+          adjusted = df[target]
+      elif df[target].head(12) == 0:
+          seasons, trend = fit_seasons(df[target])
+          adjusted = adjust_seasons(df[target], seasons = seasons)
+      else:
+          seasons, trend = fit_seasons(df[target], period = 12)
+          adjusted = adjust_seasons(df[target], seasons = seasons)
+          
+      residual = adjusted - trend
+      df['adjusted'] = adjusted
+      df['residual'] = residual
+      df['trend'] = df['adjusted'] - df['residual']
+      
+    except:
+      pass
     
-    df_ts = pd.DataFrame({'adjusted': adjusted, 'residual': residual})
-    df_ts['trend'] = df_ts['adjusted'] - df_ts['residual']
+    return(df)
     
-    return(df_ts)
+def cov(df):
+    """
+    :param df: pandas dataframe
+    :return: cov calculated dataframe
+    """
+    target = 'SUM_UNCLEAN_SOH'
     
+    df['deseasonalized_cov'] = variation(df['residual'] + df['trend'], axis = 0) * 100
+    df['raw_cov'] = variation(df[target], axis = 0) * 100
+    df['trend_cov'] = variation(df['trend'], axis = 0) * 100
+    df['season_cov'] = variation(df['seasons'], axis = 0) * 100
+    df['residual_cov'] = variation(df['residual'], axis = 0) * 100
+    
+    return(df)
     
     

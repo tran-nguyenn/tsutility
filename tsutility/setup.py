@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="tsutility", # Replace with your own username
-    version="0.1",
+    version="0.2",
     author="Kevin Choi",
     author_email="kjchoi10@gmail.com",
     description="time series calculations",
