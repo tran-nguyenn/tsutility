@@ -67,33 +67,32 @@ def decomposed(df):
     :return: list of decomposed calculated dataframes
     """
     target = 'SUM_UNCLEAN_SOH'
+    
     # ignore warnings about NA or 0 division
     np.seterr(divide = 'ignore', invalid = 'ignore')
     
     # sort values by forecast date
     df = df.sort_values(by = ['FORECAST_DATE'])
-    
-    #df_ts = pd.DataFrame()
-    
-    try:
       
-      if df[target].head(6) == 0:
-          adjusted = df[target]
-      elif df[target].head(12) == 0:
-          seasons, trend = fit_seasons(df[target])
-          adjusted = adjust_seasons(df[target], seasons = seasons)
-      else:
-          seasons, trend = fit_seasons(df[target], period = 12)
-          adjusted = adjust_seasons(df[target], seasons = seasons)
-          
-      residual = adjusted - trend
-      df['adjusted'] = adjusted
-      df['residual'] = residual
-      df['trend'] = df['adjusted'] - df['residual']
-      
-    except:
-      pass
+    if np.all(df[target].head(6) == 0):
+      seasons, trend = np.zeros(len(df)), np.zeros(len(df))
+      adjusted = df[target]
+    if np.all(df[target].head(12) == 0):
+      seasons, trend = fit_seasons(df[target])
+      adjusted = adjust_seasons(df[target], seasons = seasons)
+    else:
+      seasons, trend = fit_seasons(df[target], period = 12)
+      adjusted = adjust_seasons(df[target], seasons = seasons)
+    if seasons is None:
+      seasons = np.zeros(len(df))
+      adjusted = df[target]
     
+    residual = adjusted - trend
+    df['adjusted'] = adjusted
+    df['residual'] = residual
+    df['trend'] = trend
+    df['seasons'] = seasons
+      
     return(df)
     
 def cov(df):
