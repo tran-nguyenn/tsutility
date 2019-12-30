@@ -73,35 +73,34 @@ def decomposed(df):
     # sort values by forecast date
     df = df.sort_values(by = ['FORECAST_DATE'])
     
-    # check for consecutive zeros anywhere in the data pre-processing
-    df_clean = df[df[target] != 0]
-    
     try:
-      if len(df_clean) < 6:
-        seasons, trend = np.zeros(len(df_clean), dtype = float), np.zeros(len(df_clean), dtype = float)
-        adjusted = df_clean[target]
-      if len(df_clean) < 12:
-        seasons, trend = fit_seasons(df_clean[target])
-        adjusted = adjust_seasons(df_clean[target], seasons = seasons)
+      if len(df) < 6:
+        seasons, trend = np.zeros(len(df), dtype = float), np.zeros(len(df), dtype = float)
+        adjusted = df[target]
+      if len(df) < 12:
+        seasons, trend = fit_seasons(df[target])
+        adjusted = adjust_seasons(df[target], seasons = seasons)
       else:
-        seasons, trend = fit_seasons(df_clean[target], period = 12)
-        adjusted = adjust_seasons(df_clean[target], seasons = seasons)
+        seasons, trend = fit_seasons(df[target], period = 12)
+        adjusted = adjust_seasons(df[target], seasons = seasons)
 
       if seasons is None:
-        seasons = np.zeros(len(df_clean), dtype = float)
-        adjusted = df_clean[target]
+        seasons = np.zeros(len(df), dtype = float)
+        adjusted = df[target]
 
       residual = adjusted - trend
-      df_clean['adjusted'] = adjusted
-      df_clean['residual'] = residual
-      df_clean['trend'] = trend
-      df_clean['seasons'] = seasons
-
-      # columns to join
-      cols_to_use = ['adjusted', 'residual', 'trend', 'seasons', 'FORECAST_DATE']
-
-      # merge only non-zero values
-      df = pd.merge(df, df_clean[cols_to_use], how = 'left', on = 'FORECAST_DATE')
+      df['adjusted'] = adjusted
+      # changes zero values
+      df['adjusted'] = df['adjusted'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
+      df['residual'] = residual
+      # changes zero values
+      df['residual'] = df['residual'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
+      df['trend'] = trend
+      # changes zero values
+      df['trend'] = df['trend'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
+      df['seasons'] = seasons
+      # changes zero values
+      df['seasons'] = df['seasons'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
     
     except:
       pass
@@ -126,24 +125,22 @@ def cov(df):
     df = df.sort_values(by = ['FORECAST_DATE'])
     
     # check for consecutive zeros anywhere in the data pre-processing
-    df_clean = df[df[target] != 0]
+    #df_clean = df
     
     try:
-        df_clean['deseasonalized_cov'] = variation(df_clean['residual'] + df_clean['trend'], axis = 0, nan_policy = 'omit') * 100
-        df_clean['raw_cov'] = variation(df_clean[target], axis = 0, nan_policy = 'omit') * 100
-        df_clean['trend_cov'] = variation(df_clean['trend'], axis = 0, nan_policy = 'omit') * 100
-        df_clean['seasons_cov'] = variation(df_clean['seasons'], axis = 0, nan_policy = 'omit') * 100
-        df_clean['residual_cov'] = variation(df_clean['residual'], axis = 0, nan_policy = 'omit') * 100
+        df['deseasonalized_cov'] = variation(df['residual'] + df['trend'], axis = 0, nan_policy = 'omit') * 100
+        df['raw_cov'] = variation(df[target], axis = 0, nan_policy = 'omit') * 100
+        df['trend_cov'] = variation(df['trend'], axis = 0, nan_policy = 'omit') * 100
+        #df['seasons_cov'] = variation(df['seasons'], axis = 0, nan_policy = 'omit') * 100
+        df['residual_cov'] = variation(df['residual'], axis = 0, nan_policy = 'omit') * 100
         
         # columns to join
-        cols_to_use = ['deseasonalized_cov', 'raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov', 'FORECAST_DATE']
+        #cols_to_use = ['deseasonalized_cov', 'raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov', 'FORECAST_DATE']
         
         # merge only non-zero values
-        df = pd.merge(df, df_clean[cols_to_use], how = 'left', on = 'FORECAST_DATE')
+        #df = pd.merge(df, df_clean[cols_to_use], how = 'left', on = 'FORECAST_DATE')
     
     except:
         pass
     
     return(df)
-    
-    
