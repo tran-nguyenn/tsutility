@@ -99,7 +99,9 @@ class tsxyz():
       mlreadyData = mlreadyData.dropna()
 
       ### Prepare for RF ###
-
+      
+      # split to train and test
+      mlreadyTrain, mlreadyTest = mlreadyData.randomSplit([0.8,0.2],seed=2309)
       # Random Forest Classifier
       rf = RandomForestClassifier(labelCol="label", featuresCol="features", seed = 2309,
                                   numTrees=10, cacheNodeIds = True, subsamplingRate = 0.7)
