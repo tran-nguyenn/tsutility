@@ -9,6 +9,7 @@ from seasonal import fit_seasons, adjust_seasons
 import statsmodels
 from statsmodels.tsa.stattools import acf
 from scipy.stats import variation
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 def autocorrelation(df):
   """
@@ -110,6 +111,53 @@ def decomposed(df):
       #df['trend'] = np.nan
       #df['seasons'] = np.nan
       
+    return(df)
+    
+    
+def _decomposed(df):
+    """
+    :param df: pandas dataframe
+    :param target: target column of data to calculate decomposed
+    :return: list of decomposed calculated dataframes
+    """
+    target = 'SUM_UNCLEAN_SOH'
+    # ignore warnings about NA or 0 division
+    np.seterr(divide = 'ignore', invalid = 'ignore')
+    
+    # sort values by forecast date
+    df = df.sort_values(by = ['month_date'])
+    df_decompose = pd.DataFrame(df)
+    df_decompose.index = pd.DatetimeIndex(df_decompose['month_date'])
+    try:
+      if len(df) < 6:
+        seasons, trend = np.zeros(len(df), dtype = float), np.zeros(len(df), dtype = float)
+        observed = df[target]
+        residual = observed - trend
+        df['observed'] = observed
+        df['trend'] = trend
+        df['residual'] = residual
+        df['seasons'] = seasons
+      if len(df) < 12:
+        seasons, trend = np.zeros(len(df), dtype = float), np.zeros(len(df), dtype = float)
+        observed = df[target]
+        residual = observed - trend
+        df['observed'] = observed
+        df['trend'] = trend
+        df['residual'] = residual
+        df['seasons'] = seasons
+      else:
+        series = df_decompose[target]
+        result = seasonal_decompose(series, model='additive', extrapolate_trend='freq')
+        df['observed'] = result.observed
+        df['trend'] = result.trend
+        df['seasons'] = result.seasonal
+        df['residual'] = result.resid
+      
+    except:
+      pass
+      
+    df = df.reset_index(drop=True)
+    
     return(df)
   
 def cov(df):

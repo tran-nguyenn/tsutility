@@ -100,7 +100,7 @@ def data_pre_process(df, table, db, last_date, group_agg):
   RDD = sc.parallelize(list_dataframes, 100)
   
   # Map to partitioned data
-  RDD_mapped = RDD.map(decomposed).map(cov)
+  RDD_mapped = RDD.map(_decomposed).map(cov)
   
   # Collect datasets
   df_calc = RDD_mapped.collect()
