@@ -61,7 +61,7 @@ def autocorrelation(df):
 
   return(df)
   
-def decomposed(df):
+def archive_decomposed(df):
     """
     :param df: pandas dataframe
     :param target: target column of data to calculate decomposed
@@ -114,7 +114,7 @@ def decomposed(df):
     return(df)
     
     
-def _decomposed(df):
+def decomposed(df):
     """
     :param df: pandas dataframe
     :param target: target column of data to calculate decomposed
@@ -129,6 +129,7 @@ def _decomposed(df):
     df_decompose = pd.DataFrame(df)
     df_decompose.index = pd.DatetimeIndex(df_decompose['month_date'])
     try:
+      # short ts should not be evaluated
       if len(df) < 6:
         seasons, trend = np.zeros(len(df), dtype = float), np.zeros(len(df), dtype = float)
         observed = df[target]
@@ -137,6 +138,7 @@ def _decomposed(df):
         df['trend'] = trend
         df['residual'] = residual
         df['seasons'] = seasons
+      # short ts should not be evaluated
       if len(df) < 12:
         seasons, trend = np.zeros(len(df), dtype = float), np.zeros(len(df), dtype = float)
         observed = df[target]
@@ -145,6 +147,7 @@ def _decomposed(df):
         df['trend'] = trend
         df['residual'] = residual
         df['seasons'] = seasons
+      # seasonal decomposition
       else:
         series = df_decompose[target]
         result = seasonal_decompose(series, model='additive', extrapolate_trend='freq')
