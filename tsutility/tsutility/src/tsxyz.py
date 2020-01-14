@@ -1,22 +1,3 @@
-"""
-TS feature extraction and bucketizing
-"""
-import pandas as pd
-
-# Classifier
-from pyspark.sql.functions import *
-from pyspark.ml.classification import  RandomForestClassifier
-from pyspark.ml.feature import StringIndexer, OneHotEncoderEstimator, VectorAssembler, VectorSlicer
-from pyspark.ml import Pipeline
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.tuning import ParamGridBuilder, TrainValidationSplit
-from pyspark.ml.clustering import KMeans
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-from pyspark.ml.feature import Bucketizer
-from sklearn.metrics import confusion_matrix, accuracy_score
-from pyspark.mllib.util import MLUtils
-from pyspark.mllib.evaluation import MulticlassMetrics
-
 class tsxyz():
   def __init__(self):
       """
@@ -30,31 +11,11 @@ class tsxyz():
       self.Categorical_Response = "bm_wfa_bucket"
       self.Quantatative_Response = "winning_model_wfa"
 
-      self.features = ['absolute_sum_of_changes','coeff_of_variation','count_above_mean','count_below_mean','cov_bucket','distribution_channel' ,'earliest_date','first_location_of_maximum' ,'first_location_of_minimum' ,'has_duplicate'     ,'has_duplicate_max' ,'has_duplicate_min' ,'holdout_training_ratio','is_disco','kurtosis','last_location_of_maximum'     ,'last_location_of_minimum' ,'latest_date','length','long_term_max','long_term_mean','long_term_min' ,'long_term_stdev'   ,'longest_strike_above_mean','longest_strike_below_mean','maximum','mean' ,'mean_abs_change','mean_change'  ,'mean_second_derivative_central' ,'median','minimum','missing_periods','near_disco','new_item','not_enough_history'    ,'percentage_of_reoccurring_datapoints_to_all_datapoints','percentage_of_reoccurring_values_to_all_values'    ,'ratio_value_number_to_time_series_length','sample_entropy' ,'skewness','standard_deviation','sum_of_reoccurring_data_points'    ,'sum_of_reoccurring_values','sum_values','time_series_length','time_series_length_bucket','time_series_length_in_years'      ,'training_length_bucket','training_length_in_years','variance','variance_larger_than_standard_deviation','deseasonalized_cov','raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov']
+      self.features = ['absolute_sum_of_changes','coeff_of_variation','count_above_mean','count_below_mean','cov_bucket','distribution_channel','earliest_date','first_location_of_maximum','first_location_of_minimum','has_duplicate','has_duplicate_max','has_duplicate_min','holdout_training_ratio','is_disco','kurtosis','last_location_of_maximum','last_location_of_minimum','latest_date','length','long_term_max','long_term_mean','long_term_min','long_term_stdev','longest_strike_above_mean','longest_strike_below_mean','maximum','mean','mean_abs_change','mean_change','mean_second_derivative_central','median','minimum','missing_periods','near_disco','new_item','not_enough_history','percentage_of_reoccurring_datapoints_to_all_datapoints','percentage_of_reoccurring_values_to_all_values','ratio_value_number_to_time_series_length','sample_entropy','skewness','standard_deviation','sum_of_reoccurring_data_points','sum_of_reoccurring_values','sum_values','time_series_length','time_series_length_bucket','time_series_length_in_years','training_length_bucket','training_length_in_years','variance','variance_larger_than_standard_deviation']
 
-      self.cov_features = ['deseasonzlied_cov', 'raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov', 'cleaned_cov']
+      self.cov_features = ['deseasonalized_cov', 'raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov']
 
-      self.datacol = [Categorical_Response] + [Quantatative_Response] + features + ['material'] + ['location'] + ['sales_org'] + ['distribution_channel']
-      
-  def default_features():
-      """
-      :param: Initially none
-      :return Categorical_Response: categorical y varaible
-      :return Quantatative_Response: quantatative y variable
-      :return features: time series features
-      :return cov_features: cov features
-      :return datacol: data columns
-      """
-      Categorical_Response = "bm_wfa_bucket"
-      Quantatative_Response = "winning_model_wfa"
-
-      features = ['absolute_sum_of_changes','coeff_of_variation','count_above_mean','count_below_mean','cov_bucket','distribution_channel' ,'earliest_date','first_location_of_maximum' ,'first_location_of_minimum' ,'has_duplicate'     ,'has_duplicate_max' ,'has_duplicate_min' ,'holdout_training_ratio','is_disco','kurtosis','last_location_of_maximum'     ,'last_location_of_minimum' ,'latest_date','length','long_term_max','long_term_mean','long_term_min' ,'long_term_stdev'   ,'longest_strike_above_mean','longest_strike_below_mean','maximum','mean' ,'mean_abs_change','mean_change'  ,'mean_second_derivative_central' ,'median','minimum','missing_periods','near_disco','new_item','not_enough_history'    ,'percentage_of_reoccurring_datapoints_to_all_datapoints','percentage_of_reoccurring_values_to_all_values'    ,'ratio_value_number_to_time_series_length','sample_entropy' ,'skewness','standard_deviation','sum_of_reoccurring_data_points'    ,'sum_of_reoccurring_values','sum_values','time_series_length','time_series_length_bucket','time_series_length_in_years'      ,'training_length_bucket','training_length_in_years','variance','variance_larger_than_standard_deviation','deseasonalized_cov','raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov']
-
-      cov_features = ['deseasonzlied_cov', 'raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov', 'cleaned_cov']
-
-      datacol = [Categorical_Response] + [Quantatative_Response] + features + ['material'] + ['location'] + ['sales_org'] + ['distribution_channel']
-
-      return(Categorical_Response, Quantatative_Response, features, cov_features, datacol)    
+      self.datacol = [self.Categorical_Response] + [self.Quantatative_Response] + self.features + self.cov_features + ['material'] + ['location'] + ['sales_org'] + ['distribution_channel'] + ['product_category'] + ['division']
 
   def ExtractFeatureImp(self, featureImp, dataset, featuresCol):
       """
@@ -79,20 +40,20 @@ class tsxyz():
       dataset = spark.createDataFrame(df)
 
       # bucketize the dependent variable
-      splits = [0.0,0.3,0.6,1, float("inf")]
-      bucketizer = Bucketizer(splits=splits, inputCol = Quantatative_Response ,outputCol='bm_wfa_bucket')
+      splits = [0.0, 0.3, 0.6, 1.0]
+      bucketizer = Bucketizer(splits=splits, inputCol = self.Quantatative_Response ,outputCol='bm_wfa_bucket')
       bucketedData = bucketizer.transform(dataset)
 
 
-      mlreadyData = bucketedData.select(*datacol)
+      mlreadyData = bucketedData.select(*self.datacol)
 
       # one hot encoding and assembling
-      encoding_var = [i[0] for i in mlreadyData.dtypes if (i[1]=='string') & (i[0]!=Categorical_Response) & (i[0]!=Quantatative_Response) & (i[0]!='Material') &(i[0]!='location') & (i[0]!= 'Sales_Organization') & (i[0]!='distribution_channel')]
-      num_var = [i[0] for i in mlreadyData.dtypes if ((i[1]=='int') | (i[1]=='double') | (i[1]=='float')) & (i[0]!=Categorical_Response)& (i[0]!=Quantatative_Response) & (i[0]!='Material') & (i[0]!='location') & (i[0]!= 'Sales_Organization') & (i[0]!='distribution_channel')]
+      encoding_var = [i[0] for i in mlreadyData.dtypes if (i[1]=='string') & (i[0]!=self.Categorical_Response) & (i[0]!=self.Quantatative_Response) & (i[0]!='material') &(i[0]!='location') & (i[0]!= 'sales_org') & (i[0]!='distribution_channel') & (i[0]!='product_category') & (i[0]!='division')]
+      num_var = [i[0] for i in mlreadyData.dtypes if ((i[1]=='int') | (i[1]=='double') | (i[1]=='float')) & (i[0]!=self.Categorical_Response)& (i[0]!=self.Quantatative_Response) & (i[0]!='material') & (i[0]!='location') & (i[0]!= 'sales_org') & (i[0]!='distribution_channel') & (i[0]!='product_category') & (i[0]!='division')]
 
       string_indexes = [StringIndexer(inputCol = c, outputCol = 'IDX_' + c, handleInvalid = 'keep') for c in encoding_var]
       onehot_indexes = [OneHotEncoderEstimator(inputCols = ['IDX_' + c], outputCols = ['OHE_' + c]) for c in encoding_var]
-      label_indexes = StringIndexer(inputCol = Categorical_Response, outputCol = 'label', handleInvalid = 'keep')
+      label_indexes = StringIndexer(inputCol = self.Categorical_Response, outputCol = 'label', handleInvalid = 'keep')
       assembler = VectorAssembler(inputCols = num_var + ['OHE_' + c for c in encoding_var], outputCol = "features")
 
       # drop na values
@@ -112,7 +73,8 @@ class tsxyz():
       rfModel = pipe.fit(mlreadyTrain)
       mlResultsTest = rfModel.transform(mlreadyTest)
       mlResultsTotal = rfModel.transform(mlreadyData)
-      mlResults = mlResultsTest.drop("rawPrediction", "probability","features")
+      #mlResults = mlResultsTest.drop("rawPrediction", "probability","features")
+      mlResults = mlResultsTest.drop("features")
       predictionAndLabel = mlResults.select("prediction", "label").rdd
 
       ### Evaluate Test Error ###
@@ -158,14 +120,14 @@ class tsxyz():
 
       print('Confusion Matrix : \n\n {} Accuracy Score: \n\n {}'.format(cm,acc))
 
-      return(results_pd)
+      return(mlResults)
 
   def add_cov(self, df):
       """
       :param df: dataset with RF features (x,y)
       :return mlResultscov_final: dataset with RF features plus cov
       """
-      splits = [0.0,0.3,0.6,1, float("inf")]
+      splits = [0.0, 50.0, 100.0, float("inf")]
       bucketizerCOV = Bucketizer(splits=splits, inputCol = 'coeff_of_variation' ,outputCol='covXYZ')
       bucketizerRAW = Bucketizer(splits=splits, inputCol = 'raw_cov' ,outputCol='rawcovXYZ')
       bucketizerDES = Bucketizer(splits=splits, inputCol = 'deseasonalized_cov' ,outputCol='descovXYZ')
@@ -176,22 +138,15 @@ class tsxyz():
 
       return(mlResultscov_final)
 
-  def filter_ml(df):
+  def filter_ml(self, df):
       """
       :param df: spark dataframe which has RF and COV features
       :return mlResultsFinal: returns filtered spark dataframe
       """
       # filter dataset
-      keepCols = ['material','location','sales_org','distribution_channel', 'winning_model_wfa','bm_wfa_bucket', 'coeff_of_variation', 'covXYZ','dsXYZ', 'rawcovXYZ', 'descovXYZ', 'raw_cov', 'deseasonalized_cov']
+      df = df.withColumnRenamed('prediction','dsXYZ')
+      keepCols =['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','dsXYZ','covXYZ','rawcovXYZ','descovXYZ','raw_cov','deseasonalized_cov']
       # rows are duplicated because of repeating time component
       mlResultsFinal = df.select(*keepCols).distinct()
 
       return(mlResultsFinal)
-    
-    
-    
-    
-    
-    
-    
-    
