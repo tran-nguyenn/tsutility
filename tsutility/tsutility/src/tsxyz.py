@@ -34,8 +34,8 @@ class tsxyz():
 
   def random_forest(self, df):
       """
-      :param:
-      :return:
+      :param: list of pandas dataframes
+      :return: spark dataframe
       """
       dataset = spark.createDataFrame(df)
 
@@ -124,29 +124,60 @@ class tsxyz():
 
   def add_cov(self, df):
       """
-      :param df: dataset with RF features (x,y)
+      :param df: spark dataset with RF features (x,y)
       :return mlResultscov_final: dataset with RF features plus cov
       """
-      splits = [0.0, 50.0, 100.0, float("inf")]
+      splits = [0.0, 40.0, 150.0, float("inf")]
       bucketizerCOV = Bucketizer(splits=splits, inputCol = 'coeff_of_variation' ,outputCol='covXYZ')
       bucketizerRAW = Bucketizer(splits=splits, inputCol = 'raw_cov' ,outputCol='rawcovXYZ')
       bucketizerDES = Bucketizer(splits=splits, inputCol = 'deseasonalized_cov' ,outputCol='descovXYZ')
 
-      mlResultscov = bucketizerCOV.transform(df)
-      mlResultsraw = bucketizerRAW.transform(mlResultscov)
-      mlResultscov_final = bucketizerDES.transform(mlResultsraw)
+      mlResultscov = bucketizerCOV.setHandleInvalid('skip').transform(df)
+      mlResultsraw = bucketizerRAW.setHandleInvalid('skip').transform(mlResultscov)
+      mlResultscov_final = bucketizerDES.setHandleInvalid('skip').transform(mlResultsraw)
 
       return(mlResultscov_final)
 
   def filter_ml(self, df):
       """
       :param df: spark dataframe which has RF and COV features
-      :return mlResultsFinal: returns filtered spark dataframe
+      :return mlResultsFinal: returns filtered pandas dataframe
       """
       # filter dataset
       df = df.withColumnRenamed('prediction','dsXYZ')
-      keepCols =['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','dsXYZ','covXYZ','rawcovXYZ','descovXYZ','raw_cov','deseasonalized_cov']
+      keepCols =['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','dsXYZ','covXYZ','rawcovXYZ', 'descovXYZ','raw_cov','deseasonalized_cov']
       # rows are duplicated because of repeating time component
       mlResultsFinal = df.select(*keepCols).distinct()
 
       return(mlResultsFinal)
+    
+  
+  def clean_bm_wfa_bucket(self, df, bucket):
+      """
+      :param df: spark dataframe after running XYZ classifer
+      :param XYZ: column name for bm_wfa_bucket
+      :return df: returns spark dataframe
+      """
+      # change bm_wfa_bucket from 2,1,0 X,Y,Z (originally wrong order)
+      df_tmp = df.withColumn('bm_wfa_bucket_xyz', 
+                    when(col(bucket) == 0, 'Z').
+                    when(col(bucket) == 1, 'Y').
+                    when(col(bucket) == 2, 'X').
+                    otherwise('None'))
+    
+      return(df_tmp)
+  
+  def clean_xyz(self, df, XYZ):
+      """
+      :param df: spark dataframe after running XYZ classifer
+      :param XYZ: column name for XYZ
+      :return df: returns spark dataframe
+      """
+      # change bm_wfa_bucket from 0,1,2 X,Y,Z (originally wrong order)
+      df_tmp = df.withColumn(XYZ, 
+                    when(col(XYZ) == 0, 'X').
+                    when(col(XYZ) == 1, 'Y').
+                    when(col(XYZ) == 2, 'Z').
+                    otherwise('None'))
+    
+      return(df_tmp)

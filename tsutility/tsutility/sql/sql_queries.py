@@ -81,9 +81,7 @@ FROM (
    AND
    AT.location = AR.location
    WHERE
-   AR.sales_org = 'us04' AND AR.run_id = '190691871'
-   AND
-   AT.sales_org = 'us04'
+   AR.run_id = '190691871'
    AND AT.run_id = '190691871'
 ) A
 
@@ -95,16 +93,14 @@ SELECT
      C.*
 INTO #dataset
 FROM #MATLOC as B
-JOIN #apollorun as C
+LEFT JOIN #apollorun as C
 ON
 B.Material = C.material_ar
 AND B.Plant = C.location
 AND B.Month_Date = C.month_date
 AND B.Sales_Organization = C.sales_org
 AND B.Distribution_Channel = C.distribution_channel
-WHERE C.location != '1265'
 
 drop table if exists apollo.XYZ_BASE
 select * into apollo.XYZ_BASE from #dataset
 """
-

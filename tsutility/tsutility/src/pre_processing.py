@@ -2,9 +2,6 @@
 Pre-processing data
 """
 from datetime import datetime
-import pandas as pd
-import pyodbc
-from pyspark.sql.types import *
 
 def group_for_parallel(df, group):
     """
@@ -73,22 +70,32 @@ def remove_null_var(df):
     
     return(df)
 
+def round_to_decimal(df):
+  """
+  :param df: pandas dataframe
+  :return: columns rounded
+  """
+  df = df[['deseasonalized_cov', 'raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov']].round(decimals=4)
+  return(df)
+  
 ###### Main pre-process function ######
-def data_pre_process(df, table, db, last_date, group_agg):
+def data_pre_process(df, table, db, last_date, group_agg, arrow):
   """
   :param df: spark dataset imported from db
   :param table: table name (string)
   :param db: write to db "db" or not "df"
-  :param last_date: string for last day in YYYY-MM-DD
   :param group_agg: list of group aggregation by case sensitive column name
+  :param arrow: string for "true" or "false" set true for smaller datasets and false for larger datasets
   :return df_combined: returns combined pandas dataframe
   """
+  # Needs to be here to convert spark to python object for big datasets
+  spark.conf.set("spark.sql.execution.arrow.enabled", arrow)
   
   # Pre-process data
   df = df.toPandas()
-  
+
   # Remove any null values at the aggregation level
-  df = remove_null_var(df)
+  #df = remove_null_var(df)
   
   # Forecast cutoff date
   df = end_date(df, last_date)
@@ -100,7 +107,7 @@ def data_pre_process(df, table, db, last_date, group_agg):
   RDD = sc.parallelize(list_dataframes, 100)
   
   # Map to partitioned data
-  RDD_mapped = RDD.map(decomposed).map(cov)
+  RDD_mapped = RDD.map(_decomposed).map(cov)
   
   # Collect datasets
   df_calc = RDD_mapped.collect()
