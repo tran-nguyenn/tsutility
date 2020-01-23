@@ -64,7 +64,7 @@ dataset = dataset.join(product_table, on = ['material', 'location'], how = 'left
 
 
 #------------------------------------------------------------------------------------------------------
-#- 5. Pre-Process
+#- 5. Pre-Processing
 #-----------------------------------------------------------------------------------------------------
 
 # drop columns
@@ -74,9 +74,17 @@ dataset = dataset.drop(*columns_to_drop)
 # data pre-process: base table MATLOC: spark data frame, table name, return df object instead writing to db, last cut off date, aggregation level
 ts_cov = data_pre_process(dataset, 'apollo.XYZ_COV_ANC', 'df', '2020-01-01', GROUP_AGG_MATLOC)
 
+#------------------------------------------------------------------------------------------------------
+#- 6. Random Forest
+#-----------------------------------------------------------------------------------------------------
+
 # RF
 #Categorical_Response, Quantatative_Response, features, cov_features, datacol = default_features()
 mlResultsRF = tsxyz().random_forest(df = ts_cov)
+
+#------------------------------------------------------------------------------------------------------
+#- 7. COV
+#-----------------------------------------------------------------------------------------------------
 
 # Add cov
 mlResultscov_final = tsxyz().add_cov(mlResultsRF)
@@ -84,6 +92,22 @@ mlResultscov_final = tsxyz().add_cov(mlResultsRF)
 # filtering and cleaning
 mlResultsFinal = tsxyz().filter_ml(mlResultscov_final)
 
+#------------------------------------------------------------------------------------------------------
+#- 8. Post-Processing
+#-----------------------------------------------------------------------------------------------------
+
+# input is spark dataframe output is a pandas dataframe
+mlResultsCleanWFA =  tsxyz().clean_bm_wfa_bucket(mlResultsClean, 'bm_wfa_bucket')
+mlResultsFinal = tsxyz().clean_xyz(mlResultsCleanWFA, 'dsXYZ')
+mlResultsFinal = tsxyz().clean_xyz(mlResultsFinal, 'descovXYZ')
+mlResultsFinal = tsxyz().clean_xyz(mlResultsFinal, 'rawcovXYZ')
+mlResultsFinal = tsxyz().clean_xyz(mlResultsFinal, 'covXYZ')
+
+#------------------------------------------------------------------------------------------------------
+#- 9. Database
+#-----------------------------------------------------------------------------------------------------
+
 # write to db
 hot_table = "apollo.XYZ_RF_ANC"
+
 mlResultsFinal.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)
