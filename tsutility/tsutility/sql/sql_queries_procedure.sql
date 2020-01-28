@@ -133,5 +133,5 @@ CREATE TABLE apollo.WRTGB01_IMPLEMENTED_RESULTS (
 	Forecast INT,
 	matloca varchar(255),
 	run_date Date
-) **/# -*- coding: utf-8 -*-
+) **/
 
