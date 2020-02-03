@@ -1,6 +1,7 @@
 """
 Pre-processing data
 """
+import numpy as np
 from datetime import datetime
 
 def group_for_parallel(df, group):
@@ -11,40 +12,16 @@ def group_for_parallel(df, group):
     """
     target = 'SUM_UNCLEAN_SOH'
     groups = list()
+    
     for k, v in df.groupby(group):
       if(v[target].sum() != 0):
         groups.append(v)
       else:
+          
         pass
 
     return(groups)
 
-def remove_zeros(df):
-    """
-    :param df: pandas dataframe
-    :return: cleaned pandas dataframe
-    """
-    target = 'SUM_UNCLEAN_SOH'
-    df = df.loc[df[target].sum != 0]
-    return(df)
-
-def zero_padding(params):
-  def _zero_padding(df):
-      """
-      :param df: pandas dataframe
-      :param params: list of column names
-      :return: 0 values will be padded with 0.00001
-      """
-      #print(params)
-      df['test'] = df[params].apply(lambda x: x + 0.00001 if x == 0 else x)
-
-      return(df)
-  return(_zero_padding)
-
-def zero_padding_test(df):
-  df['test'] = df['trend'].apply(lambda x: x + 0.00001 if x.any() == 0 else x)
-  return(df)
-    
 def end_date(df, max_date):
     """
     :param df: pandas dataframe
@@ -66,6 +43,7 @@ def remove_null_var(df):
 
       df = df[df[columns].notnull().all(1)]
     except:
+        
       pass
     
     return(df)
@@ -76,6 +54,19 @@ def round_to_decimal(df):
   :return: columns rounded
   """
   df = df[['deseasonalized_cov', 'raw_cov', 'trend_cov', 'seasons_cov', 'residual_cov']].round(decimals=4)
+  
+  return(df)
+  
+def bucket_dependent(df, name, dependent, splits):
+  """
+  :param df: pandas dataframe
+  :param name: name of dependent variable
+  :param dependent: dependent variable
+  :param splits: array of splits
+  :return df: pandas dataframe with bucketed dependent variables
+  """
+  df[name] = np.searchsorted(splits, df[dependent].values)
+  
   return(df)
   
 ###### Main pre-process function ######
@@ -89,14 +80,11 @@ def data_pre_process(df, table, db, last_date, group_agg, arrow):
   :return df_combined: returns combined pandas dataframe
   """
   # Needs to be here to convert spark to python object for big datasets
-  spark.conf.set("spark.sql.execution.arrow.enabled", arrow)
+  #spark.conf.set("spark.sql.execution.arrow.enabled", arrow)
   
   # Pre-process data
   df = df.toPandas()
 
-  # Remove any null values at the aggregation level
-  #df = remove_null_var(df)
-  
   # Forecast cutoff date
   df = end_date(df, last_date)
   
@@ -107,13 +95,21 @@ def data_pre_process(df, table, db, last_date, group_agg, arrow):
   RDD = sc.parallelize(list_dataframes, 100)
   
   # Map to partitioned data
-  RDD_mapped = RDD.map(_decomposed).map(cov)
+  RDD_mapped = RDD.map(decomposed).map(cov)
   
   # Collect datasets
   df_calc = RDD_mapped.collect()
   
   # Concatenate the list of data frames into a single data set
   df_combined = pd.concat(df_calc, sort = True, ignore_index = True).reset_index()
+  
+  # Create categorical dependent variables
+  df_covXYZ = bucket_dependent(df_combined, 'covXYZ', 'coeff_of_variation', [50, 150, float("inf")])
+  df_rawcovXYZ = bucket_dependent(df_covXYZ, 'rawcovXYZ', 'raw_cov', [50, 150.0, float("inf")])
+  df_descovXYZ = bucket_dependent(df_rawcovXYZ, 'descovXYZ', 'deseasonalized_cov', [50, 150.0, float("inf")])
+  df_dsXYZ = bucket_dependent(df_descovXYZ, 'bm_wfa_bucket', 'winning_model_wfa', [0.3, 0.6, 1.0])
+  
+  df_combined = df_descovXYZ
   
   if(db == 'db'):
   

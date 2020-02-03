@@ -31,11 +31,8 @@ connection = {
 #-----------------------------------------------------------------------------------------------------
 
 # aggregations
-GROUP_AGG_MAT = ['material']
 GROUP_AGG_MATLOC = ['material', 'location', 'sales_org', 'distribution_channel']
-GROUP_AGG_BASE = ['material', 'location', 'distribution_channel', 'sales_org']
-GROUP_AGG_CUSTOMER = ['material', 'location', 'distribution_channel', 'sales_org', 'strategic_customer']
-GROUP_AGG_CATEGORY = ['product_category', 'distribution_channel', 'sales_org']
+GROUP_AGG_CUSTOMER = ['material', 'location', 'sales_org','distribution_channel', 'strategic_customer']
 
 #------------------------------------------------------------------------------------------------------
 #- 3. Function Imports
@@ -59,9 +56,6 @@ GROUP_AGG_CATEGORY = ['product_category', 'distribution_channel', 'sales_org']
 
 # query to db
 dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", matloc_xyz).load()
-product_table = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", product_query).load()
-dataset = dataset.join(product_table, on = ['material', 'location'], how = 'left')
-
 
 #------------------------------------------------------------------------------------------------------
 #- 5. Pre-Processing
@@ -74,40 +68,35 @@ dataset = dataset.drop(*columns_to_drop)
 # data pre-process: base table MATLOC: spark data frame, table name, return df object instead writing to db, last cut off date, aggregation level
 ts_cov = data_pre_process(dataset, 'apollo.XYZ_COV_ANC', 'df', '2020-01-01', GROUP_AGG_MATLOC)
 
+# join mlResultsRF (with apollo results) to the full dataset
+df_cov = spark.createDataFrame(ts_cov)
+
 #------------------------------------------------------------------------------------------------------
-#- 6. Random Forest
+#- 6. Random Forest (skip for now)
 #-----------------------------------------------------------------------------------------------------
 
 # RF
 #Categorical_Response, Quantatative_Response, features, cov_features, datacol = default_features()
-mlResultsRF = tsxyz().random_forest(df = ts_cov)
+#mlResultsRF = tsxyz().random_forest(df = ts_cov)
 
 #------------------------------------------------------------------------------------------------------
-#- 7. COV
+#- 7. Post-Processing
 #-----------------------------------------------------------------------------------------------------
-
-# Add cov
-mlResultscov_final = tsxyz().add_cov(mlResultsRF)
 
 # filtering and cleaning
-mlResultsFinal = tsxyz().filter_ml(mlResultscov_final)
+df_filtered = tsxyz().filter_columns(df_cov)
+
+# add filter and xyz renaming
+df1 = tsxyz().clean_xyz(df_filtered, 'bm_wfa_bucket')
+df2 = tsxyz().clean_xyz(df1, 'descovXYZ')
+df3 = tsxyz().clean_xyz(df2, 'rawcovXYZ')
+df4 = tsxyz().clean_xyz(df3, 'covXYZ')
 
 #------------------------------------------------------------------------------------------------------
-#- 8. Post-Processing
-#-----------------------------------------------------------------------------------------------------
-
-# input is spark dataframe output is a pandas dataframe
-mlResultsCleanWFA =  tsxyz().clean_bm_wfa_bucket(mlResultsClean, 'bm_wfa_bucket')
-mlResultsFinal = tsxyz().clean_xyz(mlResultsCleanWFA, 'dsXYZ')
-mlResultsFinal = tsxyz().clean_xyz(mlResultsFinal, 'descovXYZ')
-mlResultsFinal = tsxyz().clean_xyz(mlResultsFinal, 'rawcovXYZ')
-mlResultsFinal = tsxyz().clean_xyz(mlResultsFinal, 'covXYZ')
-
-#------------------------------------------------------------------------------------------------------
-#- 9. Database
+#- 8. Database
 #-----------------------------------------------------------------------------------------------------
 
 # write to db
 hot_table = "apollo.XYZ_RF_ANC"
 
-mlResultsFinal.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)
+df4.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)

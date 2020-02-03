@@ -1,137 +1,245 @@
-/****** Object:  StoredProcedure [fcst].[Apollo_WRTGB01_Update]    Script Date: 1/23/2020 12:15:54 PM ******/
+/****** Object:  StoredProcedure [fcst].[XYZ_MATLOC_ETL]    Script Date: 1/28/2020 1:01:39 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 -- =============================================
--- Author:      <Kevin Choi, Apollo WRT GB01 ETL>
+-- Author:      <Kevin Choi, , XYZ>
 -- Create Date: <2020-01-22>
--- Description: <Get Apollo Results for WRT GB01 for implemented items, and new high performance items >
+-- Description: <ETL Process for XYZ Classifier using Apollo and SOH>
 -- =============================================
-ALTER PROCEDURE [fcst].[Apollo_WRTGB01_Update] AS
+ALTER PROCEDURE [fcst].[XYZ_MATLOC_ETL] AS
 
 -- ====TO DO====
 
 -- ====Contents====
 --1. SET PARAMETERS
---2. BASE FORECAST TABLE
---3. NEW WINNERS AND HIGH POSITION TABLE
---4. Create Tables
+--2. SOH TABLE
+--3. APOLLO RUN TABLE
+--4. JOIN APOLLO AND SOH TABLE
+--5. PUT JOINED APOLLO AND SOH TABLE INTO XYZ_BASE
 
 ------------------------------------------------------------------------------------------------------
 -- 1. SET PARAMETERS
 ------------------------------------------------------------------------------------------------------
 
-DECLARE @run_date AS DATE = '2020-01-22';
+DECLARE @xyz_run_date AS DATE = '2020-01-24';
 
-DECLARE @division_filter varchar(255) = 'writing';
-
-DECLARE @distribution_filter varchar(255) = '01';
-
-DECLARE @sales_org_filter varchar(255) = 'GB01';
-
-DECLARE @sales_org_flter_in_model_results varchar(255) = 'gb01';
-
+DECLARE @run_id_filter varchar(255) = '190691871';
 
 ------------------------------------------------------------------------------------------------------
--- 2. BASE FORECAST TABLE
+-- 2. SOH TABLE
 ------------------------------------------------------------------------------------------------------
 
-DROP TABLE IF EXISTS apollo.WRTGB01_IMPLEMENTED_RESULTS
+DROP TABLE IF EXISTS #MATLOC
 
-	SELECT 
+SELECT
+     
+Material,
+Plant,
+Month_Date,
+Sales_Organization,
+Distribution_Channel,
+SUM(SALES_ORDER_HISTORY) as SUM_UNCLEAN_SOH,
+SUM(CLEAN_SALES_ORDER_HISTORY) as SUM_CLEAN_SOH
+     
+INTO #MATLOC
 
-	UPPER(fcst.material) AS Material,
-	distribution_channel AS 'Distribution_Channel',
-	UPPER(fcst.sales_org) AS 'Sales_Org',
-	fcst.location AS 'Location',
-	month AS 'Month',
-	fcst.apollo_class AS Class, 
-	model_better as Model_Better, 
-	FLOOR(IIF(winning_model_forecast = 0, 1, winning_model_forecast)) AS Forecast,
-	CONCAT(fcst.material, fcst.location) AS matloca,
-	@run_date as run_date
+FROM (
 
-	INTO apollo.WRTGB01_IMPLEMENTED_RESULTS
+	SELECT
+             
+	Distribution_Channel,
+    UPPER(Material_Code) as Material,
+    Plant,
+    UPPER(salesorg) as Sales_Organization,
+    Forecast_Date,
+	Forecast_Year,
+    Forecast_Month,
+	DATEADD(mm, DATEDIFF(mm, 0, Forecast_Date), 0) as Month_Date,
+    SALES_ORDER_HISTORY,
+    CLEAN_SALES_ORDER_HISTORY
+    
+	FROM fcst.LGCY_NWL_SAP_FCST_ORDRS
 
-	FROM apollo.ORDER_MATERIAL_LOCATION_MODEL_RESULT AS fcst
-
-	JOIN apollo.stgGB01latestLoaded AS latest ON latest.matloc = CONCAT(fcst.material, fcst.location)
-
-	WHERE 
-	(
-		division = @division_filter AND
-		benchmark_type = 'consensus' AND
-		data_split = 'Forecast' AND
-		fcst.distribution_channel = @distribution_filter AND
-		fcst.sales_org = @sales_org_filter
-	)
-
-	INSERT INTO apollo_archive.WRTGB01_IMPLEMENTED_RESULTS SELECT * FROM apollo.WRTGB01_IMPLEMENTED_RESULTS;
+	WHERE
+		(
+			 FORECAST_LAG = '0'
+             AND
+             Forecast_Year != '2016'
+		)
+    
+	) MATLOC
+    
+	GROUP BY
+    
+	Material, Plant, Sales_Organization, Distribution_Channel, Forecast_Year, Forecast_Month, Month_Date
 
 ------------------------------------------------------------------------------------------------------
--- 3. Winners and High Performance FORECAST TABLE
+-- 3. BASE APOLL RUN TABLE
 ------------------------------------------------------------------------------------------------------
 
-DROP TABLE IF EXISTS apollo.WRTGB01_NEW_WINNERS_HIGHPOS_RESULTS
-	
+DROP TABLE IF EXISTS #apollorun
+
+SELECT
+
+A.*
+
+INTO #apollorun
+
+FROM (
+
 	SELECT
 
-	UPPER(fcst.material) AS Material,
-	distribution_channel AS 'Distribution_Channel',
-	UPPER(fcst.sales_org) AS 'Sales_Org',
-	fcst.location AS 'Location',
-	month AS 'Month',
-	FLOOR(IIF(winning_model_forecast = 0, 1, winning_model_forecast)) AS Forecast,
-	CONCAT(fcst.material, fcst.location) AS matloca,
-	@run_date as run_date
+	AT.*,
+	AR.run_id as run_id_ar,
+	AT.run_id as run_id_at,
+	AR.RUN_DATE as run_date_ar,
+	AT.RUN_DATE as run_date_at,
+	UPPER(AR.sales_org) as Sales_Organization,
+	AR.month,
+	DATEADD(mm, DATEDIFF(mm, 0, AR.month), 0) as month_date,
+	AR.model_better,
+	AR.best_model_wfa,
+	AR.benchmark_wfa,
+	AR.best_model,
+	AR.holdout_best_model_wfa_bucket,
+	AR.winning_model_wfa
 
-	INTO apollo.WRTGB01_NEW_WINNERS_HIGHPOS_RESULTS
+	FROM apollo_archive.ORDER_MATERIAL_LOCATION_TIME_SERIES_ATTRIBUTES_TMP as AT
 
-	FROM apollo.ORDER_MATERIAL_LOCATION_MODEL_RESULT AS fcst
-
+	JOIN apollo_archive.ORDER_MATERIAL_LOCATION_MODEL_RESULT as AR ON UPPER(AT.material) = UPPER(AR.material) AND UPPER(AT.location) = UPPER(AR.location)
+	
 	WHERE 
+
 	(
-		division = @division_filter AND
-		benchmark_type = 'consensus' AND
-		data_split = 'Forecast' AND
-		fcst.distribution_channel = @distribution_filter AND
-		fcst.sales_org = @sales_org_flter_in_model_results AND
-		CONCAT(fcst.material,fcst.location) NOT IN (SELECT DISTINCT(matloc) FROM apollo.stgGB01latestLoaded) AND
-		location != '1040' AND
-		model_better = 'Y' AND
-		apollo_class = 'High Performance'
+	   AR.run_id = @run_id_filter
+	   AND
+	   AT.run_id = @run_id_filter
 	)
 
-	INSERT INTO apollo_archive.WRTGB01_NEW_WINNERS_HIGHPOS_RESULTS SELECT * FROM apollo.WRTGB01_NEW_WINNERS_HIGHPOS_RESULTS;
+	) A
 
 ------------------------------------------------------------------------------------------------------
--- 4. Create Tables
+-- 4. JOIN BASE APOLLO AND SOH TABLE
 ------------------------------------------------------------------------------------------------------
 
-/**
-CREATE TABLE apollo.WRTGB01_NEW_WINNERS_HIGHPOS_RESULTS (
-    Material VARCHAR(255),
-    Distribution_Channel varchar(255),
-    Sales_Org varchar(255),
-	Location varchar(255),
-	Month Date,
-	Forecast INT,
-	matloca varchar(255),
-	run_date Date
-) 
+DROP TABLE IF EXISTS #dataset
+
+SELECT
+
+B.Material as material,
+B.Plant as location,
+B.Month_Date as month_date,
+B.Sales_Organization,
+B.SUM_UNCLEAN_SOH,
+B.SUM_CLEAN_SOH,
+C.[abs_energy],
+C.[absolute_sum_of_changes],
+C.[coeff_of_variation],
+C.[count_above_mean],
+C.[count_below_mean],
+C.[cov_bucket],
+C.[distribution_channel],
+C.[earliest_date],
+C.[first_location_of_maximum],
+C.[first_location_of_minimum],
+C.[has_duplicate],
+C.[has_duplicate_max],
+C.[has_duplicate_min],
+C.[holdout_training_ratio],
+C.[is_disco],
+C.[kurtosis],
+C.[last_location_of_maximum],
+C.[last_location_of_minimum],
+C.[latest_date],
+C.[length],
+C.[long_term_max],
+C.[long_term_mean],
+C.[long_term_min],
+C.[long_term_stdev],
+C.[longest_strike_above_mean],
+C.[longest_strike_below_mean],
+C.[maximum],
+C.[mean],
+C.[mean_abs_change],
+C.[mean_change],
+C.[mean_second_derivative_central],
+C.[median],
+C.[minimum],
+C.[missing_periods],
+C.[near_disco],
+C.[new_item],
+C.[not_enough_history],
+C.[percentage_of_reoccurring_datapoints_to_all_datapoints],
+C.[percentage_of_reoccurring_values_to_all_values],
+C.[ratio_value_number_to_time_series_length],
+C.[run_id],
+C.[sales_org],
+C.[sample_entropy],
+C.[skewness],
+C.[standard_deviation],
+C.[sum_of_reoccurring_data_points],
+C.[sum_of_reoccurring_values],
+C.[sum_values],
+C.[time_series_length],
+C.[time_series_length_bucket],
+C.[time_series_length_in_years],
+C.[training_length_bucket],
+C.[training_length_in_years],
+C.[variance],
+C.[variance_larger_than_standard_deviation],
+C.[model_better],
+C.[best_model_wfa],
+C.[benchmark_wfa],
+C.[best_model],
+C.[holdout_best_model_wfa_bucket],
+C.[winning_model_wfa],
+C.[month],
+C.[month_date] as apollo_month_date,
+@xyz_run_date as xyz_run_date
+
+INTO #dataset
+
+FROM #MATLOC as B
+
+LEFT JOIN #apollorun as C ON 
+
+(
+	UPPER(B.Material) = UPPER(C.material)
+	AND UPPER(B.Plant) = UPPER(C.location)
+	AND B.Month_Date = C.month_date
+	AND UPPER(B.Sales_Organization) = UPPER(C.sales_org)
+	AND UPPER(B.Distribution_Channel) = UPPER(C.distribution_channel)
+)
 
 
-CREATE TABLE apollo.WRTGB01_IMPLEMENTED_RESULTS (
-    Material VARCHAR(255),
-    Distribution_Channel varchar(255),
-    Sales_Org varchar(255),
-	Location varchar(255),
-	Month Date,
-	Class varchar(255),
-	Model_Better varchar(255),
-	Forecast INT,
-	matloca varchar(255),
-	run_date Date
-) **/
+------------------------------------------------------------------------------------------------------
+-- 5. JOIN APOLLO/SOH TABLE WITH PRODUCT CATEGORY
+------------------------------------------------------------------------------------------------------
+
+SELECT
+
+A.*,
+B.PRODUCT_CATEGORY as product_category,
+B.DIVISION as division
+
+INTO #final_dataset 
+
+FROM #dataset as A
+
+LEFT JOIN mstr.HT_MATERIAL_PLANT_MASTER as B ON
+
+(
+	UPPER(A.material) = UPPER(B.MATL) AND
+	UPPER(A.location) = UPPER(B.Plant)
+)
+
+------------------------------------------------------------------------------------------------------
+-- 6. PUT JOINED APOLLO AND SOH TABLE INTO XYZ_BASE
+------------------------------------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS apollo.XYZ_BASE
+
+SELECT * INTO apollo.XYZ_BASE from #final_dataset
 

@@ -40,12 +40,11 @@ class tsxyz():
       dataset = spark.createDataFrame(df)
 
       # bucketize the dependent variable
-      splits = [0.0, 0.3, 0.6, 1.0]
-      bucketizer = Bucketizer(splits=splits, inputCol = self.Quantatative_Response ,outputCol='bm_wfa_bucket')
-      bucketedData = bucketizer.transform(dataset)
-
-
-      mlreadyData = bucketedData.select(*self.datacol)
+      #splits = [0.0, 0.3, 0.6, 1.0]
+      #bucketizer = Bucketizer(splits=splits, inputCol = self.Quantatative_Response ,outputCol='bm_wfa_bucket')
+      #bucketedData = bucketizer.setHandleInvalid('skip').transform(dataset)
+      
+      mlreadyData = dataset.select(*self.datacol)
 
       # one hot encoding and assembling
       encoding_var = [i[0] for i in mlreadyData.dtypes if (i[1]=='string') & (i[0]!=self.Categorical_Response) & (i[0]!=self.Quantatative_Response) & (i[0]!='material') &(i[0]!='location') & (i[0]!= 'sales_org') & (i[0]!='distribution_channel') & (i[0]!='product_category') & (i[0]!='division')]
@@ -138,14 +137,15 @@ class tsxyz():
 
       return(mlResultscov_final)
 
-  def filter_ml(self, df):
+  def filter_columns(self, df):
       """
       :param df: spark dataframe which has RF and COV features
       :return mlResultsFinal: returns filtered pandas dataframe
       """
       # filter dataset
-      df = df.withColumnRenamed('prediction','dsXYZ')
-      keepCols =['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','dsXYZ','covXYZ','rawcovXYZ', 'descovXYZ','raw_cov','deseasonalized_cov']
+      #df = df.withColumnRenamed('prediction','dsXYZ')
+      #keepCols =['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','dsXYZ','covXYZ','rawcovXYZ', 'descovXYZ','raw_cov','deseasonalized_cov']
+      keepCols = ['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','covXYZ','rawcovXYZ', 'descovXYZ','raw_cov','deseasonalized_cov']
       # rows are duplicated because of repeating time component
       mlResultsFinal = df.select(*keepCols).distinct()
 
@@ -159,10 +159,10 @@ class tsxyz():
       :return df: returns spark dataframe
       """
       # change bm_wfa_bucket from 2,1,0 X,Y,Z (originally wrong order)
-      df_tmp = df.withColumn('bm_wfa_bucket_xyz', 
-                    when(col(bucket) == 0, 'Z').
-                    when(col(bucket) == 1, 'Y').
-                    when(col(bucket) == 2, 'X').
+      df_tmp =df.withColumn('bm_wfa_bucket_xyz', 
+                    when(col(bucket) == 1, 'Z').
+                    when(col(bucket) == 2, 'Y').
+                    when(col(bucket) == 3, 'X').
                     otherwise('None'))
     
       return(df_tmp)
@@ -173,11 +173,11 @@ class tsxyz():
       :param XYZ: column name for XYZ
       :return df: returns spark dataframe
       """
-      # change bm_wfa_bucket from 0,1,2 X,Y,Z (originally wrong order)
+      # change bm_wfa_bucket from 1,2,3 X,Y,Z (originally wrong order)
       df_tmp = df.withColumn(XYZ, 
-                    when(col(XYZ) == 0, 'X').
-                    when(col(XYZ) == 1, 'Y').
-                    when(col(XYZ) == 2, 'Z').
+                    when(col(XYZ) == 1, 'X').
+                    when(col(XYZ) == 2, 'Y').
+                    when(col(XYZ) == 3, 'Z').
                     otherwise('None'))
     
       return(df_tmp)
