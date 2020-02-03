@@ -69,6 +69,15 @@ def bucket_dependent(df, name, dependent, splits):
   
   return(df)
   
+def random_number(df):
+  """
+  :param df: pandas dataframe
+  :return df: adds xyz_run_id
+  """
+  df['xyz_run_id'] = np.random.randint(100000, 99999, len(df))
+  
+  return(df)
+  
 ###### Main pre-process function ######
 def data_pre_process(df, table, db, last_date, group_agg, arrow):
   """
@@ -109,7 +118,8 @@ def data_pre_process(df, table, db, last_date, group_agg, arrow):
   df_descovXYZ = bucket_dependent(df_rawcovXYZ, 'descovXYZ', 'deseasonalized_cov', [50, 150.0, float("inf")])
   df_dsXYZ = bucket_dependent(df_descovXYZ, 'bm_wfa_bucket', 'winning_model_wfa', [0.3, 0.6, 1.0])
   
-  df_combined = df_descovXYZ
+  # add xyz_run_id
+  df_combined = random_number(df_dsXYZ)
   
   if(db == 'db'):
   

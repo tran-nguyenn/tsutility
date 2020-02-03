@@ -145,7 +145,7 @@ class tsxyz():
       # filter dataset
       #df = df.withColumnRenamed('prediction','dsXYZ')
       #keepCols =['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','dsXYZ','covXYZ','rawcovXYZ', 'descovXYZ','raw_cov','deseasonalized_cov']
-      keepCols = ['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','covXYZ','rawcovXYZ', 'descovXYZ','raw_cov','deseasonalized_cov']
+      keepCols = ['material','location','sales_org','distribution_channel','division','product_category','winning_model_wfa','bm_wfa_bucket','coeff_of_variation','covXYZ','rawcovXYZ', 'descovXYZ','raw_cov','deseasonalized_cov', 'xyz_run_date', 'xyz_run_id']
       # rows are duplicated because of repeating time component
       mlResultsFinal = df.select(*keepCols).distinct()
 
