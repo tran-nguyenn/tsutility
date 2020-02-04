@@ -1,11 +1,13 @@
 INSERT INTO apollo.XYZ_ANC_FINAL
-
 SELECT 
 
 	a.[Matl Type] as matl_type,
     a.[PS MatlStatus] as ps_matl_status,
     a.[Valid from] as valid_from,
     a.Created as created,
+	a.material_description,
+	a.material,
+	a.location,
     a.XYZ_ind,
 	b.sales_org, 
 	b.distribution_channel, 

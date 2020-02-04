@@ -1,4 +1,4 @@
-/****** Object:  StoredProcedure [fcst].[XYZ_MATLOC_ETL]    Script Date: 1/28/2020 1:01:39 PM ******/
+/****** Object:  StoredProcedure [fcst].[XYZ_MATLOC_ETL]    Script Date: 2/4/2020 2:27:20 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -23,7 +23,7 @@ ALTER PROCEDURE [fcst].[XYZ_MATLOC_ETL] AS
 -- 1. SET PARAMETERS
 ------------------------------------------------------------------------------------------------------
 
-DECLARE @xyz_run_date AS DATE = '2020-01-24';
+DECLARE @xyz_run_date AS varchar(255) = '2020-01-24';
 
 DECLARE @run_id_filter varchar(255) = '190691871';
 
@@ -131,7 +131,8 @@ SELECT
 B.Material as material,
 B.Plant as location,
 B.Month_Date as month_date,
-B.Sales_Organization,
+B.Sales_Organization as sales_org,
+B.DISTRIBUTION_CHANNEL as distribution_channel,
 B.SUM_UNCLEAN_SOH,
 B.SUM_CLEAN_SOH,
 C.[abs_energy],
@@ -140,7 +141,6 @@ C.[coeff_of_variation],
 C.[count_above_mean],
 C.[count_below_mean],
 C.[cov_bucket],
-C.[distribution_channel],
 C.[earliest_date],
 C.[first_location_of_maximum],
 C.[first_location_of_minimum],
@@ -175,7 +175,6 @@ C.[percentage_of_reoccurring_datapoints_to_all_datapoints],
 C.[percentage_of_reoccurring_values_to_all_values],
 C.[ratio_value_number_to_time_series_length],
 C.[run_id],
-C.[sales_org],
 C.[sample_entropy],
 C.[skewness],
 C.[standard_deviation],
@@ -196,7 +195,6 @@ C.[best_model],
 C.[holdout_best_model_wfa_bucket],
 C.[winning_model_wfa],
 C.[month],
-C.[month_date] as apollo_month_date,
 @xyz_run_date as xyz_run_date
 
 INTO #dataset
@@ -217,6 +215,7 @@ LEFT JOIN #apollorun as C ON
 ------------------------------------------------------------------------------------------------------
 -- 5. JOIN APOLLO/SOH TABLE WITH PRODUCT CATEGORY
 ------------------------------------------------------------------------------------------------------
+DROP TABLE IF EXISTS #final_dataset
 
 SELECT
 
@@ -242,4 +241,9 @@ LEFT JOIN mstr.HT_MATERIAL_PLANT_MASTER as B ON
 DROP TABLE IF EXISTS apollo.XYZ_BASE
 
 SELECT * INTO apollo.XYZ_BASE from #final_dataset
+
+
+
+
+
 
