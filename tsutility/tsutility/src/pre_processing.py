@@ -74,7 +74,7 @@ def random_number(df):
   :param df: pandas dataframe
   :return df: adds xyz_run_id
   """
-  df['xyz_run_id'] = np.random.randint(100000, 99999, len(df))
+  df['xyz_run_id'] = np.random.randint(100000, 99999, len(df)).astype(str)
   
   return(df)
   
