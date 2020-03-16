@@ -26,7 +26,7 @@ def decomposed(df):
     df_decompose.index = pd.DatetimeIndex(df_decompose['month_date'])
 
     try:
-      if len(df) < 6:
+      if len(df) <= 6:
         seasons, trend = np.zeros(len(df), dtype = float), np.zeros(len(df), dtype = float)
         observed = df[target]
         residual = observed - trend
@@ -39,7 +39,7 @@ def decomposed(df):
         df['residual'] = df['residual'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
         df['trend'] = df['trend'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
         df['seasons'] = df['seasons'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
-      if len(df) < 12:
+      if len(df) <= 12:
         seasons, trend = np.zeros(len(df), dtype = float), np.zeros(len(df), dtype = float)
         observed = df[target]
         residual = observed - trend
