@@ -32,9 +32,24 @@ connection = {
 #- 2. Parameters
 #-----------------------------------------------------------------------------------------------------
 
-# aggregations
-GROUP_AGG_MATLOC = ['material', 'location', 'sales_org', 'distribution_channel']
-GROUP_AGG_CUSTOMER = ['material', 'location', 'sales_org','distribution_channel', 'strategic_customer']
+run_config = {
+"GROUP_BY_DIMENSIONS":  ["material", "location"],
+"RESPONSES":    {"clean":   "CLEAN_SOH",
+                 "unclean": "UNCLEAN_SOH",
+                 "month":   "month_date"
+                 },
+"coefficient_of_variation_bucket": {"cov":  [50, 150.0, float("inf")],
+                                    "wfa":  [0.3, 0.6, 1.0]
+                                    },
+"RESULT_TABLE":                     "apollo.ANC_XYZ",
+}
+
+# parameters
+GROUP = run_config['GROUP_BY_DIMENSIONS']
+RESPONSE = run_config['RESPONSES']['clean']
+MONTH = run_config['RESPONSES']['month']
+cov_range = run_config['coefficient_of_variation_bucket']['cov']
+wfa_range = run_config['coefficient_of_variation_bucket']['wfa']
 
 #------------------------------------------------------------------------------------------------------
 #- 3. Function Imports
@@ -42,6 +57,8 @@ GROUP_AGG_CUSTOMER = ['material', 'location', 'sales_org','distribution_channel'
 
 # queries
 %run ./sql/sql_queries
+
+%run ./sql/fact/anc/order_mat_lctn_mnth
 
 # functions
 %run ./src/tscalc
@@ -57,27 +74,23 @@ GROUP_AGG_CUSTOMER = ['material', 'location', 'sales_org','distribution_channel'
 #-----------------------------------------------------------------------------------------------------
 
 # query to db
-dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", matloc_xyz).load()
+dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", xyz_base_anc).load()
 
 #------------------------------------------------------------------------------------------------------
 #- 5. Pre-Processing
 #-----------------------------------------------------------------------------------------------------
 
-# drop columns
-columns_to_drop = ['run_date_ar', 'run_date_at', 'run_id_at', 'run_id_ar', 'material_ar', 'material_at', 'Sales_Organization', 'RUN_DATE', 'Plant']
-dataset = dataset.drop(*columns_to_drop)
-
 # data pre-process: base table MATLOC: spark data frame, table name, return df object instead writing to db, last cut off date, aggregation level
-dataset_process = pre_process(dataset, GROUP_AGG_MATLOC, '2020-01-01')
+dataset_process = pre_process(dataset, GROUP, '2020-01-01')
 
 RDD = sc.parallelize(dataset_process, 100).collect()
 
 df = pd.concat(RDD, sort = True, ignore_index = True).reset_index()
 
-df_covXYZ = bucket_dependent(df, 'covXYZ', 'coeff_of_variation', [50, 150, float("inf")])
-df_rawcovXYZ = bucket_dependent(df_covXYZ, 'rawcovXYZ', 'raw_cov', [50, 150.0, float("inf")])
-df_descovXYZ = bucket_dependent(df_rawcovXYZ, 'descovXYZ', 'deseasonalized_cov', [50, 150.0, float("inf")])
-df_dsXYZ = bucket_dependent(df_descovXYZ, 'bm_wfa_bucket', 'winning_model_wfa', [0.3, 0.6, 1.0])
+df_covXYZ = bucket_dependent(df, 'covXYZ', 'coeff_of_variation', cov_range])
+df_rawcovXYZ = bucket_dependent(df_covXYZ, 'rawcovXYZ', 'raw_cov', cov_range)
+df_descovXYZ = bucket_dependent(df_rawcovXYZ, 'descovXYZ', 'deseasonalized_cov', cov_range)
+df_dsXYZ = bucket_dependent(df_descovXYZ, 'bm_wfa_bucket', 'winning_model_wfa', wfa_range)
 
 # join mlResultsRF (with apollo results) to the full dataset
 df_cov = spark.createDataFrame(ts_cov)
