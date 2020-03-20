@@ -43,7 +43,7 @@ class tsxyz():
       #splits = [0.0, 0.3, 0.6, 1.0]
       #bucketizer = Bucketizer(splits=splits, inputCol = self.Quantatative_Response ,outputCol='bm_wfa_bucket')
       #bucketedData = bucketizer.setHandleInvalid('skip').transform(dataset)
-      
+
       mlreadyData = dataset.select(*self.datacol)
 
       # one hot encoding and assembling
@@ -59,7 +59,7 @@ class tsxyz():
       mlreadyData = mlreadyData.dropna()
 
       ### Prepare for RF ###
-      
+
       # split to train and test
       mlreadyTrain, mlreadyTest = mlreadyData.randomSplit([0.8,0.2],seed=2309)
       # Random Forest Classifier
@@ -150,8 +150,8 @@ class tsxyz():
       mlResultsFinal = df.select(*keepCols).distinct()
 
       return(mlResultsFinal)
-    
-  
+
+
   def clean_bm_wfa_bucket(self, df, bucket):
       """
       :param df: spark dataframe after running XYZ classifer
@@ -159,25 +159,20 @@ class tsxyz():
       :return df: returns spark dataframe
       """
       # change bm_wfa_bucket from 2,1,0 X,Y,Z (originally wrong order)
-      df_tmp =df.withColumn('bm_wfa_bucket_xyz', 
+      df_tmp =df.withColumn('bm_wfa_bucket_xyz',
                     when(col(bucket) == 1, 'Z').
                     when(col(bucket) == 2, 'Y').
                     when(col(bucket) == 3, 'X').
                     otherwise('None'))
-    
+
       return(df_tmp)
-  
-  def clean_xyz(self, df, XYZ):
+
+    def clean_XYZ(df,cols):
       """
-      :param df: spark dataframe after running XYZ classifer
-      :param XYZ: column name for XYZ
-      :return df: returns spark dataframe
+      :param df: pandas DataFrame
+      :param cols: list of cov column names
+      :return df: pandas DataFrame
       """
-      # change bm_wfa_bucket from 1,2,3 X,Y,Z (originally wrong order)
-      df_tmp = df.withColumn(XYZ, 
-                    when(col(XYZ) == 1, 'X').
-                    when(col(XYZ) == 2, 'Y').
-                    when(col(XYZ) == 3, 'Z').
-                    otherwise('None'))
-    
-      return(df_tmp)
+      for i in cols:
+        df = df.replace({i:{1:'X',2:'Y',3:'Z',0:'Z'}})
+      return df
