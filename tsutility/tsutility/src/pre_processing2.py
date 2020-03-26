@@ -22,7 +22,7 @@ def group_for_parallel(df, target,  group):
 
     return(groups)
 
-def end_date(df, month_var, max_date):
+def end_date(df, month_var):
     """
     :param df: pandas dataframe
     :return: cleaned pandas dataframe includes only forecast up to max date

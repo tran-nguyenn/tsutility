@@ -36,21 +36,23 @@ connection = {
 GROUP_AGG_MATLOC = ['material', 'location', 'sales_org', 'distribution_channel']
 GROUP_AGG_CUSTOMER = ['material', 'location', 'sales_org','distribution_channel', 'strategic_customer']
 
+print(GROUP_AGG_MATLOC)
+
 #------------------------------------------------------------------------------------------------------
 #- 3. Function Imports
 #-----------------------------------------------------------------------------------------------------
 
 # queries
-%run ./sql/sql_queries
+#%run ./sql/sql_queries
 
 # functions
-%run ./src/tscalc
+#%run ./src/tscalc
 
-%run ./src/tsxyz
+#%run ./src/tsxyz
 
-%run ./src/utils
+#%run ./src/utils
 
-%run ./src/pre_processing
+#%run ./src/pre_processing2
 
 #------------------------------------------------------------------------------------------------------
 #- 4. Data Imports
@@ -70,7 +72,7 @@ dataset = dataset.drop(*columns_to_drop)
 # data pre-process: base table MATLOC: spark data frame, table name, return df object instead writing to db, last cut off date, aggregation level
 dataset_process = pre_process(dataset, GROUP_AGG_MATLOC, '2020-01-01')
 
-RDD = sc.parallelize(dataset_process, 100).collect()
+RDD = sc.parallelize(dataset_process, 100).map(_decomposed).map(cov).collect()
 
 df = pd.concat(RDD, sort = True, ignore_index = True).reset_index()
 
@@ -98,10 +100,17 @@ df_cov = spark.createDataFrame(ts_cov)
 df_filtered = tsxyz().filter_columns(df_cov)
 
 # add filter and xyz renaming
-df1 = tsxyz().clean_xyz(df_filtered, 'bm_wfa_bucket')
-df2 = tsxyz().clean_xyz(df1, 'descovXYZ')
-df3 = tsxyz().clean_xyz(df2, 'rawcovXYZ')
-df4 = tsxyz().clean_xyz(df3, 'covXYZ')
+def clean_XYZ(df,cols):
+  """
+  :param df: pandas DataFrame
+  :param cols: list of columns to cleaned
+  :return: pandas DataFrame
+  """
+  for i in cols:
+    df = df.replace({i:{1:'X',2:'Y',3:'Z',0:'Z'}})
+  return df
+
+df_clean = clean_XYZ(df_filtered.toPandas(),['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
 
 #------------------------------------------------------------------------------------------------------
 #- 8. Database
@@ -110,4 +119,4 @@ df4 = tsxyz().clean_xyz(df3, 'covXYZ')
 # write to db
 hot_table = "apollo.XYZ_RF_ANC"
 
-df4.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)
+df_clean.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)
