@@ -47,18 +47,6 @@ def remove_null_var(df):
 
     return(df)
 
-def xyz_label(df, name, dependent, splits):
-    """
-    :param df: pandas dataframe
-    :param name: name of dependent variable
-    :param dependent: dependent variable
-    :param splits: array of splits
-    :return df: pandas dataframe with bucketed dependent variables
-    """
-    df[name] = np.searchsorted(splits, df[dependent].values)
-
-return(df)
-
 def pre_process(df, group_agg, last_date):
     """
     :param df: pandas dataframe
