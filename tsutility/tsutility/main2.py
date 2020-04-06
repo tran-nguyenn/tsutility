@@ -55,7 +55,7 @@ run_config = {
 
 # parameters
 GROUP = run_config['GROUP_BY_DIMENSIONS']
-RESPONSE = run_config['RESPONSES']['clean']
+RESPONSE = run_config['RESPONSES']['unclean']
 MONTH = run_config['RESPONSES']['month']
 cov_range = run_config['coefficient_of_variation_bucket']['cov']
 wfa_range = run_config['coefficient_of_variation_bucket']['wfa']
@@ -101,9 +101,10 @@ dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",use
 # data pre-process: base table MATLOC: spark data frame, table name, return df object instead writing to db, last cut off date, aggregation level
 dataset_process = pre_process(dataset, GROUP, CURRENT_DATE)
 
-# find out to pass in paramters into map functions
-RDD = sc.parallelize(dataset_process, 100).map(decomposed).map(cov).collect()
+# parallelize and pass response variable
+RDD = sc.parallelize(dataset_process, 100).map(lambda data: decomposed(data, RESPONSE)).map(lambda data: cov(data, RESPONSE)).collect()
 
+# reset index after parallelized code
 df = pd.concat(RDD, sort = True, ignore_index = True).reset_index()
 
 # output time series results to database
