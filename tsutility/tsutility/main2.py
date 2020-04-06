@@ -34,28 +34,38 @@ connection = {
 
 run_config = {
 "GROUP_BY_DIMENSIONS":  ["material", "location"],
-"RESPONSES":    {"clean":   "CLEAN_SOH",
+"RESPONSES":    {
+                 "clean":   "CLEAN_SOH",
                  "unclean": "UNCLEAN_SOH",
                  "month":   "month_date"
                  },
-"coefficient_of_variation_bucket": {"cov":  [50, 150.0, float("inf")],
+"coefficient_of_variation_bucket": {
+                                    "cov":  [50, 150.0, float("inf")],
                                     "wfa":  [0.3, 0.6, 1.0]
                                     },
-"RESULT_TABLE":                     {"ANC": "apollo.ANC_XYZ"
+"RESULT_TABLE":                     {
+                                    "ANC": "apollo.ANC_XYZ"
                                     },
 "CURRENT_DATE":                     "2020-01-01"
+"TIME_SERIES_DB":                   {
+                                    "db_flag": "yes",
+                                    "db_name": "apollo.XYZ_ANC_TIME_SERIES"
+                                    }
 }
 
 # parameters
 GROUP = run_config['GROUP_BY_DIMENSIONS']
-RESPONSE = run_config['RESPONSES']['clean']
+RESPONSE = run_config['RESPONSES']['unclean']
 MONTH = run_config['RESPONSES']['month']
 cov_range = run_config['coefficient_of_variation_bucket']['cov']
 wfa_range = run_config['coefficient_of_variation_bucket']['wfa']
 RESULT_TABLE = run_config['RESULT_TABLE']['ANC']
 CURRENT_DATE = run_config['CURRENT_DATE']
+TIME_SERIES_FLAG = run_config['db_flag']
+TIME_SERIES_DB_NAME = run_config['db_name']
 
 print(GROUP_AGG_MATLOC)
+
 
 #------------------------------------------------------------------------------------------------------
 #- 3. Function Imports
@@ -91,35 +101,29 @@ dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",use
 # data pre-process: base table MATLOC: spark data frame, table name, return df object instead writing to db, last cut off date, aggregation level
 dataset_process = pre_process(dataset, GROUP, CURRENT_DATE)
 
-RDD = sc.parallelize(dataset_process, 100).map(_decomposed).map(cov).collect()
+# parallelize and pass response variable
+RDD = sc.parallelize(dataset_process, 100).map(lambda data: decomposed(data, RESPONSE)).map(lambda data: cov(data, RESPONSE)).collect()
 
+# reset index after parallelized code
 df = pd.concat(RDD, sort = True, ignore_index = True).reset_index()
 
-# Creating the XYZ labels
+# output time series results to database
+if(TIME_SERIES_FLAG == "yes"):
+    # write to db
+    time_series_table = spark.createDataFrame(df)
+    time_series_table.write.jdbc(url=jdbcUrl, table=TIME_SERIES_DB_NAME, mode='overwrite', properties=connection)
+
+# Creating the XYZ labels (edit this such that it's only one table name)
 df_covXYZ = xyz_label(df, 'covXYZ', 'coeff_of_variation', cov_range])
 df_rawcovXYZ = xyz_label(df_covXYZ, 'rawcovXYZ', 'raw_cov', cov_range)
 df_descovXYZ = xyz_label(df_rawcovXYZ, 'descovXYZ', 'deseasonalized_cov', cov_range)
 df_dsXYZ = xyz_label(df_descovXYZ, 'bm_wfa_bucket', 'winning_model_wfa', wfa_range)
 
-# join mlResultsRF (with apollo results) to the full dataset
-df_cov = spark.createDataFrame(df_dsXYZ)
-
-#------------------------------------------------------------------------------------------------------
-#- 6. Random Forest (skip for now)
-#-----------------------------------------------------------------------------------------------------
-
-# RF
-#Categorical_Response, Quantatative_Response, features, cov_features, datacol = default_features()
-#mlResultsRF = tsxyz().random_forest(df = ts_cov)
-
 #------------------------------------------------------------------------------------------------------
 #- 7. Post-Processing
 #-----------------------------------------------------------------------------------------------------
 
-# filtering and cleaning
-df_filtered = tsxyz().filter_columns(df_cov)
-
-df_clean = clean_XYZ(df_filtered.toPandas(),['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
+df_clean = clean_XYZ(df_dsXYZ,['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
 
 #------------------------------------------------------------------------------------------------------
 #- 8. Database
