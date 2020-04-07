@@ -11,17 +11,16 @@ def clean_XYZ(df,cols):
     df = df.replace({i:{1:'X',2:'Y',3:'Z',0:'Z'}})
   return df
 
-def xyz_label(df, name, dependent, splits):
+def xyz_label(df, dependent, splits):
     """
     :param df: pandas dataframe
-    :param name: name of dependent variable
     :param dependent: dependent variable
     :param splits: array of splits
-    :return df: pandas dataframe with bucketed dependent variables
+    :return labeled: pandas column
     """
-    df[name] = np.searchsorted(splits, df[dependent].values)
+    labeled = np.searchsorted(splits, df[dependent].values)
 
-return(df)
+return(labeled)
 
 def filter_columns():
     "Mary: Python version"

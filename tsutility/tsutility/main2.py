@@ -114,19 +114,19 @@ if(TIME_SERIES_FLAG == "yes"):
     time_series_table.write.jdbc(url=jdbcUrl, table=TIME_SERIES_DB_NAME, mode='overwrite', properties=connection)
 
 # Creating the XYZ labels (edit this such that it's only one table name)
-df_covXYZ = xyz_label(df, 'covXYZ', 'coeff_of_variation', cov_range])
-df_rawcovXYZ = xyz_label(df_covXYZ, 'rawcovXYZ', 'raw_cov', cov_range)
-df_descovXYZ = xyz_label(df_rawcovXYZ, 'descovXYZ', 'deseasonalized_cov', cov_range)
-df_dsXYZ = xyz_label(df_descovXYZ, 'bm_wfa_bucket', 'winning_model_wfa', wfa_range)
+df['covXYZ'] = xyz_label(df, 'coeff_of_variation', cov_range])
+df['rawcovXYZ'] = xyz_label(df, 'raw_cov', cov_range)
+df['descovXYZ'] = xyz_label(df, 'deseasonalized_cov', cov_range)
+df['dsXYZ'] = xyz_label(df, 'winning_model_wfa', wfa_range)
 
 #------------------------------------------------------------------------------------------------------
-#- 7. Post-Processing
+#- 6. Post-Processing
 #-----------------------------------------------------------------------------------------------------
 
-df_clean = clean_XYZ(df_dsXYZ,['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
+df_clean = clean_XYZ(df,['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
 
 #------------------------------------------------------------------------------------------------------
-#- 8. Database
+#- 7. Database
 #-----------------------------------------------------------------------------------------------------
 
 # write to db
