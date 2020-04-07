@@ -4,7 +4,6 @@ Decomposed time series and COV calculation at a specific aggregation level
 
 import pandas as pd
 import numpy as np
-from scipy.stats import variation
 from statsmodels.tsa.seasonal import seasonal_decompose
 
 def decomposed(df, target, month_date):
@@ -66,29 +65,5 @@ def decomposed(df, target, month_date):
       pass
 
     df = df.reset_index(drop=True)
-
-    return(df)
-
-def cov(df, target, month_date):
-    """
-    :param df: pandas dataframe
-    :return: cov calculated dataframe
-    """
-    # ignore warnings about NA or 0 division
-    np.seterr(divide = 'ignore', invalid = 'ignore')
-
-    # sort values by forecast date / issues with index chaining
-    df = df.sort_values(by = [month_date])
-
-    try:
-        df['deseasonalized_cov'] = variation(df['residual'] + df['trend'], axis = 0, nan_policy = 'omit') * 100
-        df['raw_cov'] = variation(df[target], axis = 0, nan_policy = 'omit') * 100
-        df['trend_cov'] = variation(df['trend'], axis = 0, nan_policy = 'omit') * 100
-        df['seasons_cov'] = variation(df['seasons'], axis = 0, nan_policy = 'omit') * 100
-        df['residual_cov'] = variation(df['residual'], axis = 0, nan_policy = 'omit') * 100
-
-    except:
-
-        pass
 
     return(df)

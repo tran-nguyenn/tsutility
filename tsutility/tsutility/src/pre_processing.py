@@ -4,17 +4,16 @@ Pre-processing data
 import numpy as np
 from datetime import datetime
 
-def group_for_parallel(df, target,  group):
+def group_for_parallel(df, response,  group):
     """
     :param df: pandas dataframe
     :param group: group by statement
     :return: list of group by dataframes
     """
-    target = 'SUM_UNCLEAN_SOH'
     groups = list()
 
     for k, v in df.groupby(group):
-      if(v[target].sum() != 0):
+      if(v[response].sum() != 0):
         groups.append(v)
       else:
 
@@ -22,12 +21,14 @@ def group_for_parallel(df, target,  group):
 
     return(groups)
 
-def end_date(df, month_var):
+def end_date(df, date_variable, cutoff_date):
     """
     :param df: pandas dataframe
+    :param date_variable: name of date variable (i.e. month/week)
+    :param cutoff_date: cutoff date for the forecast
     :return: cleaned pandas dataframe includes only forecast up to max date
     """
-    max_date = datetime.strptime(month_var, '%Y-%m-%d')
+    max_date = datetime.strptime(cutoff_date, '%Y-%m-%d')
     df_end = df[df[date_variable] < max_date]
 
     return(df_end)
@@ -47,7 +48,7 @@ def remove_null_var(df):
 
     return(df)
 
-def pre_process(df, group_agg, last_date):
+def pre_process(df, response, group, date_variable, cutoff_date):
     """
     :param df: pandas dataframe
     :param group_agg: aggregation key (list)
@@ -55,9 +56,9 @@ def pre_process(df, group_agg, last_date):
     :return: list of grouped dataframes
     """
     # Forecast cutoff date
-    df = end_date(df, last_date)
+    df = end_date(df, date_variable, cutoff_date)
 
     # Create the group for parallelization
-    list_dataframes = group_for_parallel(df, group_agg)
+    list_dataframes = group_for_parallel(df, response, group)
 
     return(list_dataframes)
