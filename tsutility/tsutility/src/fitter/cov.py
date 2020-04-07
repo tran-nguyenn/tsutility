@@ -20,8 +20,6 @@ def cov(df, target, month_date):
     try:
         df['deseasonalized_cov'] = variation(df['residual'] + df['trend'], axis = 0, nan_policy = 'omit') * 100
         df['raw_cov'] = variation(df[target], axis = 0, nan_policy = 'omit') * 100
-        df['trend_cov'] = variation(df['trend'], axis = 0, nan_policy = 'omit') * 100
-        df['seasons_cov'] = variation(df['seasons'], axis = 0, nan_policy = 'omit') * 100
         df['residual_cov'] = variation(df['residual'], axis = 0, nan_policy = 'omit') * 100
 
     except:
