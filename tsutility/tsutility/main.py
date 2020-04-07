@@ -29,11 +29,27 @@ connection = {
 }
 
 #------------------------------------------------------------------------------------------------------
-#- 2. Parameters
+#- 2. Function Imports
+#-----------------------------------------------------------------------------------------------------
+
+# queries
+%run ./sql/sql_queries
+
+# functions
+%run ./src/fitter/cov
+
+%run ./src/fitter/decomposed
+
+%run ./src/pre_processing
+
+%run ./src/post_processing
+
+#------------------------------------------------------------------------------------------------------
+#- 3. Parameters
 #-----------------------------------------------------------------------------------------------------
 
 run_config = {
-"GROUP_BY_DIMENSIONS":  ["material", "location"],
+"GROUP_BY_DIMENSIONS":  ["material", "location", "sales_org", "distribution_channel", "retailer"],
 "RESPONSES":    {
                  "clean":   "CLEAN_SOH",
                  "unclean": "UNCLEAN_SOH",
@@ -44,12 +60,13 @@ run_config = {
                                     "wfa":  [0.3, 0.6, 1.0]
                                     },
 "RESULT_TABLE":                     {
-                                    "ANC": "apollo.ANC_XYZ"
+                                    "ANC": "apollo.ANC_XYZ",
+                                    "BABY": "apollo.BABY_XYZ"
                                     },
-"CURRENT_DATE":                     "2020-01-01",
+"CUTOFF_DATE":                     "2020-01-01",
 "TIME_SERIES_DB":                   {
                                     "db_flag": "yes",
-                                    "db_name": "apollo.XYZ_ANC_TIME_SERIES"
+                                    "db_name": "apollo.XYZ_BABY_TIME_SERIES"
                                     }
 }
 
@@ -59,39 +76,20 @@ RESPONSE = run_config['RESPONSES']['unclean']
 MONTH = run_config['RESPONSES']['month']
 cov_range = run_config['coefficient_of_variation_bucket']['cov']
 wfa_range = run_config['coefficient_of_variation_bucket']['wfa']
-RESULT_TABLE = run_config['RESULT_TABLE']['ANC']
-CURRENT_DATE = run_config['CURRENT_DATE']
+RESULT_TABLE = run_config['RESULT_TABLE']['BABY']
+CUTOFF_DATE = run_config['CUTOFF_DATE']
 TIME_SERIES_FLAG = run_config['TIME_SERIES_DB']['db_flag']
 TIME_SERIES_DB_NAME = run_config['TIME_SERIES_DB']['db_name']
 
-print(GROUP_AGG_MATLOC)
-
-#------------------------------------------------------------------------------------------------------
-#- 3. Function Imports
-#-----------------------------------------------------------------------------------------------------
-
-# queries
-%run ./sql/sql_queries
-
-%run ./sql/fact/anc/order_mat_lctn_mnth
-
-# functions
-%run ./src/fitter/cov
-
-%run ./src/fitter/decomposed
-
-%run ./src/post_process
-
-%run ./src/pre_processing
-
-%run ./src/post_processing
+print(CUTOFF_DATE)
+print(GROUP)
 
 #------------------------------------------------------------------------------------------------------
 #- 4. Data Imports
 #-----------------------------------------------------------------------------------------------------
 
 # query to db
-dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", xyz_base_anc).load()
+dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", xyz_base_anc).load().toPandas()
 
 #------------------------------------------------------------------------------------------------------
 #- 5. Pre-Processing
@@ -113,16 +111,15 @@ if(TIME_SERIES_FLAG == "yes"):
     time_series_table.write.jdbc(url=jdbcUrl, table=TIME_SERIES_DB_NAME, mode='overwrite', properties=connection)
 
 # XYZ label
-df['covXYZ'] = xyz_label(df, 'coeff_of_variation', cov_range])
+df['resXYZ'] = xyz_label(df, 'residual_cov', cov_range)
 df['rawcovXYZ'] = xyz_label(df, 'raw_cov', cov_range)
 df['descovXYZ'] = xyz_label(df, 'deseasonalized_cov', cov_range)
-df['dsXYZ'] = xyz_label(df, 'winning_model_wfa', wfa_range)
 
 #------------------------------------------------------------------------------------------------------
 #- 6. Post-Processing
 #-----------------------------------------------------------------------------------------------------
 
-df_clean = clean_XYZ(df,['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
+df_clean = clean_XYZ(df,['descovXYZ','rawcovXYZ','resXYZ'])
 
 #------------------------------------------------------------------------------------------------------
 #- 7. Database
@@ -131,4 +128,6 @@ df_clean = clean_XYZ(df,['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
 # write to db
 hot_table = RESULT_TABLE
 
-df_clean.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)
+df_final = spark.createDataFrame(df_clean)
+
+df_final.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)

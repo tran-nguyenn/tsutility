@@ -20,8 +20,4 @@ def xyz_label(df, dependent, splits):
     """
     labeled = np.searchsorted(splits, df[dependent].values)
 
-return(labeled)
-
-def filter_columns():
-    "Mary: Python version"
-    return(df)
+    return(labeled)
