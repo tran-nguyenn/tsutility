@@ -4,6 +4,8 @@ import pyodbc
 #- 1. Database Credentials
 #-----------------------------------------------------------------------------------------------------
 
+# CAN BE WRITTEN IN DATABRICKS
+
 # credentials
 server = "datasciencelab1sqlsrv.database.windows.net"
 database = "datasciencelab1-sqldb"
@@ -30,9 +32,39 @@ connection = {
 #- 2. Parameters
 #-----------------------------------------------------------------------------------------------------
 
-# aggregations
-GROUP_AGG_MATLOC = ['material', 'location', 'sales_org', 'distribution_channel']
-GROUP_AGG_CUSTOMER = ['material', 'location', 'sales_org','distribution_channel', 'strategic_customer']
+run_config = {
+"GROUP_BY_DIMENSIONS":  ["material", "location"],
+"RESPONSES":    {
+                 "clean":   "CLEAN_SOH",
+                 "unclean": "UNCLEAN_SOH",
+                 "month":   "month_date"
+                 },
+"coefficient_of_variation_bucket": {
+                                    "cov":  [50, 150.0, float("inf")],
+                                    "wfa":  [0.3, 0.6, 1.0]
+                                    },
+"RESULT_TABLE":                     {
+                                    "ANC": "apollo.ANC_XYZ"
+                                    },
+"CURRENT_DATE":                     "2020-01-01",
+"TIME_SERIES_DB":                   {
+                                    "db_flag": "yes",
+                                    "db_name": "apollo.XYZ_ANC_TIME_SERIES"
+                                    }
+}
+
+# parameters
+GROUP = run_config['GROUP_BY_DIMENSIONS']
+RESPONSE = run_config['RESPONSES']['unclean']
+MONTH = run_config['RESPONSES']['month']
+cov_range = run_config['coefficient_of_variation_bucket']['cov']
+wfa_range = run_config['coefficient_of_variation_bucket']['wfa']
+RESULT_TABLE = run_config['RESULT_TABLE']['ANC']
+CURRENT_DATE = run_config['CURRENT_DATE']
+TIME_SERIES_FLAG = run_config['TIME_SERIES_DB']['db_flag']
+TIME_SERIES_DB_NAME = run_config['TIME_SERIES_DB']['db_name']
+
+print(GROUP_AGG_MATLOC)
 
 #------------------------------------------------------------------------------------------------------
 #- 3. Function Imports
@@ -41,62 +73,62 @@ GROUP_AGG_CUSTOMER = ['material', 'location', 'sales_org','distribution_channel'
 # queries
 %run ./sql/sql_queries
 
+%run ./sql/fact/anc/order_mat_lctn_mnth
+
 # functions
-%run ./src/tscalc
+%run ./src/fitter/cov
 
-%run ./src/tsxyz
+%run ./src/fitter/decomposed
 
-%run ./src/utils
+%run ./src/post_process
 
 %run ./src/pre_processing
+
+%run ./src/post_processing
 
 #------------------------------------------------------------------------------------------------------
 #- 4. Data Imports
 #-----------------------------------------------------------------------------------------------------
 
 # query to db
-dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", matloc_xyz).load()
+dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", xyz_base_anc).load()
 
 #------------------------------------------------------------------------------------------------------
 #- 5. Pre-Processing
 #-----------------------------------------------------------------------------------------------------
 
-# drop columns
-columns_to_drop = ['run_date_ar', 'run_date_at', 'run_id_at', 'run_id_ar', 'material_ar', 'material_at', 'Sales_Organization', 'RUN_DATE', 'Plant']
-dataset = dataset.drop(*columns_to_drop)
-
 # data pre-process: base table MATLOC: spark data frame, table name, return df object instead writing to db, last cut off date, aggregation level
-ts_cov = data_pre_process(dataset, 'apollo.XYZ_COV_ANC', 'df', '2020-01-01', GROUP_AGG_MATLOC)
+dataset_process = pre_process(dataset, GROUP, CURRENT_DATE)
 
-# join mlResultsRF (with apollo results) to the full dataset
-df_cov = spark.createDataFrame(ts_cov)
+# parallelize and pass response variable
+RDD = sc.parallelize(dataset_process, 100).map(lambda data: decomposed(data, RESPONSE)).map(lambda data: cov(data, RESPONSE)).collect()
+
+# reset index after parallelized code
+df = pd.concat(RDD, sort = True, ignore_index = True).reset_index()
+
+# output time series results to database
+if(TIME_SERIES_FLAG == "yes"):
+    # write to db
+    time_series_table = spark.createDataFrame(df)
+    time_series_table.write.jdbc(url=jdbcUrl, table=TIME_SERIES_DB_NAME, mode='overwrite', properties=connection)
+
+# XYZ label
+df['covXYZ'] = xyz_label(df, 'coeff_of_variation', cov_range])
+df['rawcovXYZ'] = xyz_label(df, 'raw_cov', cov_range)
+df['descovXYZ'] = xyz_label(df, 'deseasonalized_cov', cov_range)
+df['dsXYZ'] = xyz_label(df, 'winning_model_wfa', wfa_range)
 
 #------------------------------------------------------------------------------------------------------
-#- 6. Random Forest (skip for now)
+#- 6. Post-Processing
 #-----------------------------------------------------------------------------------------------------
 
-# RF
-#Categorical_Response, Quantatative_Response, features, cov_features, datacol = default_features()
-#mlResultsRF = tsxyz().random_forest(df = ts_cov)
+df_clean = clean_XYZ(df,['bm_wfa_bucket','descovXYZ','rawcovXYZ','covXYZ'])
 
 #------------------------------------------------------------------------------------------------------
-#- 7. Post-Processing
-#-----------------------------------------------------------------------------------------------------
-
-# filtering and cleaning
-df_filtered = tsxyz().filter_columns(df_cov)
-
-# add filter and xyz renaming
-df1 = tsxyz().clean_xyz(df_filtered, 'bm_wfa_bucket')
-df2 = tsxyz().clean_xyz(df1, 'descovXYZ')
-df3 = tsxyz().clean_xyz(df2, 'rawcovXYZ')
-df4 = tsxyz().clean_xyz(df3, 'covXYZ')
-
-#------------------------------------------------------------------------------------------------------
-#- 8. Database
+#- 7. Database
 #-----------------------------------------------------------------------------------------------------
 
 # write to db
-hot_table = "apollo.XYZ_RF_ANC"
+hot_table = RESULT_TABLE
 
-df4.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)
+df_clean.write.jdbc(url=jdbcUrl, table=hot_table, mode='overwrite', properties=connection)
