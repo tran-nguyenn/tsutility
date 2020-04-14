@@ -1,7 +1,0 @@
-{
- "BASE":    "\\params\\sql\\base_table.sql",
- "PRODUCT":     "\\params\\sql\\productTable.sql" ,
- "BASE_GROUP":     "\\params\\sql\\query_base_group.sql",
- "PRODUCT_GROUP":   "\\params\\sql\\query_product_group.sql",
- "STRATCUST_GROUP":     "\\params\\sql\\query_stratcust_group.sql" 
- }
