@@ -40,6 +40,8 @@ connection = {
 
 %run ./src/fitter/decomposed
 
+%run ./src/fitter/residuals
+
 %run ./src/pre_processing
 
 %run ./src/post_processing
@@ -99,7 +101,7 @@ dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",use
 dataset_process = pre_process(dataset, GROUP, CURRENT_DATE)
 
 # parallelize and pass response variable
-RDD = sc.parallelize(dataset_process, 100).map(lambda data: decomposed(data, RESPONSE)).map(lambda data: cov(data, RESPONSE)).collect()
+RDD = sc.parallelize(dataset_process, 100).map(lambda data: decomposed(data, RESPONSE)).map(lambda data: residuals(data, RESPONSE)).map(lambda data: cov(data, RESPONSE)).collect()
 
 # reset index after parallelized code
 df = pd.concat(RDD, sort = True, ignore_index = True).reset_index()
