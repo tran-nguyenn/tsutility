@@ -49,9 +49,9 @@ connection = {
 #------------------------------------------------------------------------------------------------------
 #- 3. Parameters
 #-----------------------------------------------------------------------------------------------------
-
+ 
 run_config = {
-"GROUP_BY_DIMENSIONS":  ["material", "location", "sales_org", "distribution_channel", "retailer"],
+"GROUP_BY_DIMENSIONS":  ["material", "location", "sales_org", "distribution_channel"],
 "RESPONSES":    {
                  "clean":   "CLEAN_SOH",
                  "unclean": "UNCLEAN_SOH",
@@ -63,13 +63,10 @@ run_config = {
                                     },
 "RESULT_TABLE":                     {
                                     "ANC": "apollo.ANC_XYZ",
-                                    "BABY": "apollo.BABY_XYZ"
+                                    "BABY": "apollo.BABY_XYZ",
+                                    "FOOD": "apollo.FOOD_XYZ"
                                     },
-"CUTOFF_DATE":                     "2020-01-01",
-"TIME_SERIES_DB":                   {
-                                    "db_flag": "yes",
-                                    "db_name": "apollo.XYZ_BABY_TIME_SERIES"
-                                    }
+"CUTOFF_DATE":                     "2020-04-01"
 }
 
 # parameters
@@ -78,10 +75,9 @@ RESPONSE = run_config['RESPONSES']['unclean']
 MONTH = run_config['RESPONSES']['month']
 cov_range = run_config['coefficient_of_variation_bucket']['cov']
 wfa_range = run_config['coefficient_of_variation_bucket']['wfa']
-RESULT_TABLE = run_config['RESULT_TABLE']['BABY']
+RESULT_TABLE = run_config['RESULT_TABLE']['FOOD']
 CUTOFF_DATE = run_config['CUTOFF_DATE']
-TIME_SERIES_FLAG = run_config['TIME_SERIES_DB']['db_flag']
-TIME_SERIES_DB_NAME = run_config['TIME_SERIES_DB']['db_name']
+INPUT_DATA = food_sql
 
 print(CUTOFF_DATE)
 print(GROUP)
@@ -91,7 +87,7 @@ print(GROUP)
 #-----------------------------------------------------------------------------------------------------
 
 # query to db
-dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", xyz_base_anc).load().toPandas()
+dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",username).option("password",password).option("query", INPUT_DATA).load().toPandas()
 
 #------------------------------------------------------------------------------------------------------
 #- 5. Pre-Processing
@@ -101,16 +97,10 @@ dataset = spark.read.format("jdbc").option("url", jdbcUrl).option("username",use
 dataset_process = pre_process(dataset, GROUP, CURRENT_DATE)
 
 # parallelize and pass response variable
-RDD = sc.parallelize(dataset_process, 100).map(lambda data: decomposed(data, RESPONSE)).map(lambda data: residuals(data, RESPONSE)).map(lambda data: cov(data, RESPONSE)).collect()
+RDD = sc.parallelize(dataset_process, 100).map(lambda data: decomposed(data, RESPONSE, MONTH)).map(lambda data: residuals(data, RESPONSE, MONTH)).map(lambda data: cov(data, RESPONSE, MONTH)).collect()
 
 # reset index after parallelized code
 df = pd.concat(RDD, sort = True, ignore_index = True).reset_index()
-
-# output time series results to database
-if(TIME_SERIES_FLAG == "yes"):
-    # write to db
-    time_series_table = spark.createDataFrame(df)
-    time_series_table.write.jdbc(url=jdbcUrl, table=TIME_SERIES_DB_NAME, mode='overwrite', properties=connection)
 
 # XYZ label
 df['resXYZ'] = xyz_label(df, 'residual_cov', cov_range)
