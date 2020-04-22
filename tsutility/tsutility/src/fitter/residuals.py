@@ -8,8 +8,8 @@ def residuals(df, response, month_date):
       np.seterr(divide = 'ignore', invalid = 'ignore')
       mean = df['residual'].mean(axis=0)
       std = df['residual'].std(axis=0)
-      lower = mean - 3 * std
-      upper = mean + 3 * std
+      lower = mean - 2 * std
+      upper = mean + 2 * std
       df['resid_mean'] = mean
       df['resid_std'] = std
       df['lower_limit'] = lower
