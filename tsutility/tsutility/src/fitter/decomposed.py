@@ -49,7 +49,7 @@ def decomposed(df, target, month_date):
         df['seasons'] = df['seasons'].apply(lambda x: x + 0.00001 if x == 0.0 else x)
       elif len(df) >= 12:
         series = df_decompose[target]
-        result = seasonal_decompose(series, model='additive', extrapolate_trend='freq')
+        result = seasonal_decompose(series, model='additive', freq=11)
         df['observed'] = result.observed
         df['trend'] = result.trend
         df['seasons'] = result.seasonal
